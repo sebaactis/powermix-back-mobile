@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/voucher"
 	"github.com/sebaactis/powermix-back-mobile/internal/platform/config"
@@ -25,5 +26,6 @@ func Migrate(db *gorm.DB) error {
 		&user.User{},
 		&voucher.Voucher{},
 		&proof.Proof{},
+		&token.Token{},
 	)
 }

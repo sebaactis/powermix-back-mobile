@@ -51,6 +51,53 @@ func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 	h.respondWithTokens(w, user, tokens)
 }
 
+func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		utils.WriteError(w, http.StatusUnauthorized, "Refresh token vacio", nil)
+		return
+	}
+
+	refreshToken := strings.TrimPrefix(authHeader, "Bearer ")
+
+	userID, email, tokenType, err := h.jwt.Parse(refreshToken, jwtx.TokenTypeRefresh)
+	if err != nil || tokenType != jwtx.TokenTypeRefresh {
+		utils.WriteError(w, http.StatusUnauthorized, "Refresh token invalido", nil)
+		return
+	}
+
+	// Generar nuevos tokens
+	newAccessToken, err := h.jwt.Sign(userID, email, jwtx.TokenTypeAccess)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "No se pudo crear el access token", nil)
+		return
+	}
+
+	newRefreshToken, err := h.jwt.Sign(userID, email, jwtx.TokenTypeRefresh)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "No se pudo crear el refresh token", nil)
+		return
+	}
+
+	_ = h.tokens.RevokeToken(r.Context(), refreshToken)
+
+	_, _ = h.tokens.Create(r.Context(), &token.TokenRequest{
+		TokenType: string(jwtx.TokenTypeAccess),
+		Token:     newAccessToken,
+	})
+
+	_, _ = h.tokens.Create(r.Context(), &token.TokenRequest{
+		TokenType: string(jwtx.TokenTypeRefresh),
+		Token:     newRefreshToken,
+	})
+
+	// Devolver al frontend
+	utils.WriteJSON(w, http.StatusOK, map[string]string{
+		"accessToken":  newAccessToken,
+		"refreshToken": newRefreshToken,
+	})
+}
+
 func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Request) {
 	var req RecoveryPasswordRequest
 
@@ -117,9 +164,6 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 	utils.WriteJSON(w, http.StatusOK, user.ToResponse(userRecovery))
 
 }
-
-
-
 
 // ==================== MÉTODOS PRIVADOS ====================
 

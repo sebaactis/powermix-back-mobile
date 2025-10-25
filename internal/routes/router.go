@@ -1,17 +1,43 @@
 package routes
 
 import (
-	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
+	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
+	"github.com/sebaactis/powermix-back-mobile/internal/security/auth"
+	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 )
 
-func Router() *chi.Mux {
+type Deps struct {
+	UserHandler    *user.HTTPHandler
+	TokenHandler   *token.HTTPHandler
+	AuthHandler    *auth.HTTPHandler
+	Validator      *validations.Validator
+	RateLimiter    *middlewares.RateLimiter
+	AuthMiddleware *middlewares.AuthMiddleware
+}
+
+func Router(d Deps) *chi.Mux {
 
 	r := chi.NewRouter()
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Testing chi router"))
+	r.Use(middlewares.Logger(), middlewares.JSONContentType(), middlewares.Timeout(30*time.Second))
+
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Post("/register", d.UserHandler.Create)
+		r.Post("/login", d.AuthHandler.Login)
+		r.Get("/recoveryPassword", d.AuthHandler.RecoveryPasswordRequest)
+		r.Post("/updatePasswordRecovery", d.AuthHandler.UpdatePasswordByRecovery)
+		r.Post("/refreshToken", d.AuthHandler.RefreshToken)
+
+		r.Group(func(pr chi.Router) {
+			pr.Use(d.AuthMiddleware.RequireAuth())
+
+			pr.Get("/user/{id}", d.UserHandler.GetByID)
+		})
 	})
 
 	return r

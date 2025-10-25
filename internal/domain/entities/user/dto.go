@@ -1,9 +1,8 @@
 package user
 
 import (
-	"time"
-
 	"github.com/google/uuid"
+	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 )
 
 type UserCreate struct {
@@ -18,7 +17,7 @@ type UserResponse struct {
 	Name          string    `json:"name"`
 	Email         string    `json:"email"`
 	LoginAttempts int       `json:"login_attempt"`
-	LockedUntil   time.Time `json:"locked_until"`
+	LockedUntil   string    `json:"locked_until"`
 }
 
 type UserRecoveryPassword struct {
@@ -33,7 +32,7 @@ func ToResponse(u *User) *UserResponse {
 		ID:            u.ID,
 		Name:          u.Name,
 		Email:         u.Email,
-		LockedUntil:   u.Locked_until,
+		LockedUntil:   utils.FormatDate(&u.Locked_until),
 		LoginAttempts: u.LoginAttempt,
 	}
 }

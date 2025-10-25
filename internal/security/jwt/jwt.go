@@ -90,21 +90,21 @@ func (j *JWT) Sign(userID uuid.UUID, email string, tokenType TokenType) (string,
 	return token.SignedString(secret)
 }
 
-func (j *JWT) Parse(tokenIn string, tokenType TokenType) (uint, string, TokenType, error) {
+func (j *JWT) Parse(tokenIn string, tokenType TokenType) (uuid.UUID, string, TokenType, error) {
 	return j.parseWithSecret(tokenIn, j.secret, tokenType)
 }
 
-func (j *JWT) ParseResetPassword(tokenIn string) (uint, string, TokenType, error) {
+func (j *JWT) ParseResetPassword(tokenIn string) (uuid.UUID, string, TokenType, error) {
 	return j.parseWithSecret(tokenIn, j.reset_secret, TokenTypeResetPassword)
 }
 
-func (j *JWT) parseWithSecret(tokenIn string, secret []byte, expectedType TokenType) (uint, string, TokenType, error) {
+func (j *JWT) parseWithSecret(tokenIn string, secret []byte, expectedType TokenType) (uuid.UUID, string, TokenType, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenIn,
 		&Claims{},
 		func(t *jwt.Token) (any, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, errors.New("unexpected signing method")
+				return nil, errors.New("firma invalida")
 			}
 			return secret, nil
 		},
@@ -112,28 +112,24 @@ func (j *JWT) parseWithSecret(tokenIn string, secret []byte, expectedType TokenT
 	)
 
 	if err != nil || !token.Valid {
-		return 0, "", "", errors.New("invalid token")
+		return uuid.UUID{}, "", "", errors.New("token invalido")
 	}
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok {
-		return 0, "", "", errors.New("invalid token claims")
+		return uuid.UUID{}, "", "", errors.New("credenciales en el token invalidas")
 	}
 
 	if claims.TokenType != expectedType {
-		return 0, "", "", errors.New("invalid token type")
+		return uuid.UUID{}, "", "", errors.New("tipo de token invalido")
 	}
 
+	// Pendiente validar si esta revocado
 	if claims.ExpiresAt != nil && time.Now().After(claims.ExpiresAt.Time) {
-		return 0, "", "", errors.New("token expired")
+		return uuid.UUID{}, "", "", errors.New("token expirado")
 	}
 
-	idU64, err := strconv.ParseUint(claims.Subject, 10, 64)
-	if err != nil {
-		return 0, "", "", errors.New("invalid subject")
-	}
-
-	return uint(idU64), claims.Email, claims.TokenType, nil
+	return uuid.MustParse(claims.Subject), claims.Email, claims.TokenType, nil
 }
 
 func (j *JWT) getExpiration(tokenType TokenType, now time.Time) time.Time {
