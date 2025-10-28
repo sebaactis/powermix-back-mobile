@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
@@ -13,6 +14,7 @@ import (
 
 type Deps struct {
 	UserHandler    *user.HTTPHandler
+	ProofHandler   *proof.HTTPHandler
 	TokenHandler   *token.HTTPHandler
 	AuthHandler    *auth.HTTPHandler
 	Validator      *validations.Validator
@@ -37,6 +39,10 @@ func Router(d Deps) *chi.Mux {
 			pr.Use(d.AuthMiddleware.RequireAuth())
 
 			pr.Get("/user/{id}", d.UserHandler.GetByID)
+
+			pr.Get("/me/proofs", d.ProofHandler.GetAllByUserId)
+			pr.Get("/me/proofs/{id}", d.ProofHandler.GetById)	
+			pr.Post("/proof", d.ProofHandler.Create)
 		})
 	})
 

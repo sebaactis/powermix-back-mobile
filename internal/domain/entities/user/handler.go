@@ -25,7 +25,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req UserCreate
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "invalid request"}`, http.StatusBadRequest)
+		utils.WriteError(w, http.StatusBadRequest, "Error al intentar parsear el request, por favor validar el mismo", nil)
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
@@ -14,13 +15,13 @@ type ctxKey string
 
 const ctxUserID ctxKey = "jwtx.user_id"
 
-func UserIDFromContext(ctx context.Context) (uint, bool) {
+func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	v := ctx.Value(ctxUserID)
 	if v == nil {
-		return 0, false
+		return uuid.Nil, false
 	}
 
-	id, ok := v.(uint)
+	id, ok := v.(uuid.UUID)
 	return id, ok
 }
 
@@ -59,7 +60,6 @@ func (a *AuthMiddleware) RequireAuth() func(http.Handler) http.Handler {
 				return
 			}
 
-			// Agregar el userID al contexto
 			ctx := context.WithValue(r.Context(), ctxUserID, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

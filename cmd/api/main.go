@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
@@ -53,6 +54,11 @@ func main() {
 	userService := user.NewService(userRepository, tokenService, validator)
 	userHandler := user.NewHTTPHandler(userService)
 
+	// Proof DI
+	proofRepository := proof.NewRepository(db)
+	proofService := proof.NewService(proofRepository, validator)
+	proofHandler := proof.NewHTTPHandler(proofService)
+
 	// Auth DI
 	authHandler := auth.NewHTTPHandler(userService, tokenService, jwt, validator)
 
@@ -62,6 +68,7 @@ func main() {
 	r := routes.Router(routes.Deps{
 		UserHandler:    userHandler,
 		TokenHandler:   tokenHandler,
+		ProofHandler:   proofHandler,
 		AuthHandler:    authHandler,
 		AuthMiddleware: authMiddleware,
 		RateLimiter:    rateLimiter,
