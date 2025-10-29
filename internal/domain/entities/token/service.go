@@ -54,7 +54,7 @@ func (s *Service) RevokeToken(ctx context.Context, token string) error {
 	}
 
 	if tokenCheck.Is_Revoked && tokenCheck.Revoked_Date.Before(time.Now()) {
-		return errors.New("the token is revoked")
+		return errors.New("el token no es válido o ya no está vigente")
 	}
 
 	return s.repository.RevokeToken(ctx, token)

@@ -19,17 +19,6 @@ func (r *Repository) Create(ctx context.Context, user *User) error {
 	return r.db.WithContext(ctx).Create(user).Error
 }
 
-func (r *Repository) FindAll(ctx context.Context) ([]*User, error) {
-	users := []*User{}
-	result := r.db.WithContext(ctx).Find(&users)
-
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	return users, nil
-}
-
 func (r *Repository) FindByID(ctx context.Context, id uint) (*User, error) {
 	var u User
 

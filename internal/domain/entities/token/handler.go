@@ -20,7 +20,7 @@ func (h *HTTPHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errors := make(map[string]string)
 		errors["error"] = err.Error()
-		utils.WriteError(w, http.StatusBadRequest, "El requests enviado es invalido", errors)
+		utils.WriteError(w, http.StatusBadRequest, "El request enviado es invalido", errors)
 		return
 	}
 

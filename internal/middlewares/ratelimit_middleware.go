@@ -53,7 +53,7 @@ func (rl *RateLimiter) Middleware() func(http.Handler) http.Handler {
 			}
 			if b.count >= rl.perWindow {
 				rl.mu.Unlock()
-				utils.WriteError(w, http.StatusTooManyRequests, "Rate Limit excedido", nil)
+				utils.WriteError(w, http.StatusTooManyRequests, "Rate limit excedido", nil)
 				return
 			}
 			b.count++

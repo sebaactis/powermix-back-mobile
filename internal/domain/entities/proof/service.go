@@ -3,23 +3,34 @@ package proof
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/sebaactis/powermix-back-mobile/internal/clients/mercadopago"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 )
 
 type Service struct {
 	repo      *Repository
 	validator validations.StructValidator
+	mpClient  *mercadopago.Client
 }
 
-func NewService(repo *Repository, validator validations.StructValidator) *Service {
-	return &Service{repo: repo, validator: validator}
+func NewService(repo *Repository, validator validations.StructValidator, mpClient *mercadopago.Client) *Service {
+	return &Service{repo: repo, validator: validator, mpClient: mpClient}
 }
 
 func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofResponse, error) {
 	if fields, ok := s.validator.ValidateStruct(proof); !ok {
 		return nil, &validations.ValidationError{Fields: fields}
+	}
+
+	valid, err := s.mpClient.ValidatePaymentExists(ctx, proof.ProofMPID)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, fmt.Errorf("el comprobante %s no existe en Mercado Pago", proof.ProofMPID)
 	}
 
 	proofCreated, err := s.repo.Create(ctx, proof)

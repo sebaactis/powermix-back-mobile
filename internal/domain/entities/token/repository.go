@@ -39,9 +39,9 @@ func (r *Repository) GetByToken(ctx context.Context, tokenIn string) (*Token, er
 	err := r.db.WithContext(ctx).Where("token = ?", tokenIn).First(&token).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("token not found")
+			return nil, errors.New("no se encontró el token proporcionado")
 		}
-		return nil, errors.New("unexpected error")
+		return nil, errors.New("error inesperado")
 	}
 
 	return &token, nil
@@ -58,7 +58,7 @@ func (r *Repository) Update(ctx context.Context, token string, updates map[strin
 	}
 
 	if result.RowsAffected == 0 {
-		return errors.New("Token not found")
+		return errors.New("no se encontró el token proporcionado")
 	}
 
 	return nil

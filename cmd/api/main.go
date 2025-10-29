@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/sebaactis/powermix-back-mobile/internal/clients/mercadopago"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
@@ -44,6 +45,9 @@ func main() {
 	validator := validations.NewValidator()
 	rateLimiter := middlewares.NewRateLimiter(10, 2*time.Minute)
 
+	// MP
+	mpClient := mercadopago.NewClient(cfg.MercagoPagoToken)
+
 	// Token DI
 	tokenRepository := token.NewRepository(db)
 	tokenService := token.NewService(tokenRepository, validator)
@@ -56,7 +60,7 @@ func main() {
 
 	// Proof DI
 	proofRepository := proof.NewRepository(db)
-	proofService := proof.NewService(proofRepository, validator)
+	proofService := proof.NewService(proofRepository, validator, mpClient)
 	proofHandler := proof.NewHTTPHandler(proofService)
 
 	// Auth DI

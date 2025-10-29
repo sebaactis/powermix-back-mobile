@@ -33,16 +33,16 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if fields, ok := validations.AsValidationError(err); ok {
-			utils.WriteError(w, http.StatusBadRequest, "validation error", fields)
+			utils.WriteError(w, http.StatusBadRequest, "Error de validacion", fields)
 			return
 		}
 
 		if errors.Is(err, ErrDuplicateEmail) {
-			utils.WriteError(w, http.StatusConflict, "email already exists", nil)
+			utils.WriteError(w, http.StatusConflict, "El email ya se encuentra en uso", nil)
 			return
 		}
 
-		utils.WriteError(w, http.StatusInternalServerError, "internal server error", nil)
+		utils.WriteError(w, http.StatusInternalServerError, "Error en el servidor", map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -56,27 +56,16 @@ func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(idStr)
 
 	if err != nil || id <= 0 {
-		http.Error(w, `{"error": "invalid id"}`, http.StatusBadRequest)
+		utils.WriteError(w, http.StatusBadRequest, "Id inválido", map[string]string{"error": err.Error()})
 		return
 	}
 
 	u, err := h.service.GetByID(r.Context(), uint(id))
 
 	if err != nil {
-		http.Error(w, `{"error": "not found"}`, http.StatusNotFound)
+		utils.WriteError(w, http.StatusBadRequest, "Id inválido", map[string]string{"error": err.Error()})
 		return
 	}
 
 	json.NewEncoder(w).Encode(ToResponse(u))
-}
-
-func (h *HTTPHandler) FindAll(w http.ResponseWriter, r *http.Request) {
-	users, err := h.service.FindAll(r.Context())
-
-	if err != nil {
-		utils.WriteError(w, http.StatusNotFound, "users not found", nil)
-		return
-	}
-
-	json.NewEncoder(w).Encode(ToResponseMany(users))
 }

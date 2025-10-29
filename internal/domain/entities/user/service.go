@@ -71,10 +71,6 @@ func (s *Service) GetByEmail(ctx context.Context, email string) (*User, error) {
 	return s.repository.FindByEmail(ctx, email)
 }
 
-func (s *Service) FindAll(ctx context.Context) ([]*User, error) {
-	return s.repository.FindAll(ctx)
-}
-
 func (s *Service) IncrementLoginAttempt(ctx context.Context, id uuid.UUID) (int, error) {
 	return s.repository.IncrementLoginAttempt(ctx, id)
 }
