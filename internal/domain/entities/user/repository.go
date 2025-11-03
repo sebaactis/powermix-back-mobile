@@ -76,6 +76,52 @@ func (r *Repository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&User{}, id).Error
 }
 
+func (r *Repository) IncrementStampsCounter(ctx context.Context, id uuid.UUID) (int, error) {
+	result := r.db.WithContext(ctx).
+	Model(&User{}).
+	Where("id = ?", id).
+	Update("stamps_counter", gorm.Expr("stamps_counter + ?", 1))
+
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return 0, errors.New("user not found")
+	}
+
+	var user User
+
+	if err := r.db.WithContext(ctx).Select("stamps_counter").First(&user, id).Error; err != nil {
+		return 0, err
+	}
+
+	return user.StampsCounter, nil
+}
+
+func (r *Repository) ResetStampsCounter(ctx context.Context, id uuid.UUID) (int, error) {
+	result := r.db.WithContext(ctx).
+	Model(&User{}).
+	Where("id = ?", id).
+	Update("stamps_counter", 0)
+
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return 0, errors.New("user not found")
+	}
+
+	var user User
+
+	if err := r.db.WithContext(ctx).Select("login_attempt").First(&user, id).Error; err != nil {
+		return 0, err
+	}
+
+	return user.StampsCounter, nil
+}
+
 func (r *Repository) IncrementLoginAttempt(ctx context.Context, id uuid.UUID) (int, error) {
 
 	result := r.db.WithContext(ctx).

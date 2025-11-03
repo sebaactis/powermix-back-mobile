@@ -7,6 +7,7 @@ import (
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/voucher"
 	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
 	"github.com/sebaactis/powermix-back-mobile/internal/security/auth"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
@@ -15,6 +16,7 @@ import (
 type Deps struct {
 	UserHandler    *user.HTTPHandler
 	ProofHandler   *proof.HTTPHandler
+	VoucherHandler *voucher.HTTPHandler
 	TokenHandler   *token.HTTPHandler
 	AuthHandler    *auth.HTTPHandler
 	Validator      *validations.Validator

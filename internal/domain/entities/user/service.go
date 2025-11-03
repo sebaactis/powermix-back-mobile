@@ -75,6 +75,14 @@ func (s *Service) IncrementLoginAttempt(ctx context.Context, id uuid.UUID) (int,
 	return s.repository.IncrementLoginAttempt(ctx, id)
 }
 
+func (s *Service) IncrementStampsCounter(ctx context.Context, id uuid.UUID) (int, error) {
+	return s.repository.IncrementStampsCounter(ctx, id)
+}
+
+func (s *Service) ResetStampsCounter(ctx context.Context, id uuid.UUID) (int, error) {
+	return s.repository.ResetStampsCounter(ctx, id)
+}
+
 func (s *Service) UnlockUser(ctx context.Context, id uint) error {
 	return s.repository.UnlockUser(ctx, id)
 }

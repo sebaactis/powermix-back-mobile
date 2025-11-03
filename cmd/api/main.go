@@ -14,6 +14,7 @@ import (
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/voucher"
 	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
 	"github.com/sebaactis/powermix-back-mobile/internal/platform/config"
 	"github.com/sebaactis/powermix-back-mobile/internal/platform/database"
@@ -58,9 +59,16 @@ func main() {
 	userService := user.NewService(userRepository, tokenService, validator)
 	userHandler := user.NewHTTPHandler(userService)
 
+	// Voucher DI
+	voucherRepository := voucher.NewRepository(db)
+	voucherService := voucher.NewService(voucherRepository)
+	voucherHandler := voucher.NewHTTPHandler(voucherService)
+
+
+
 	// Proof DI
 	proofRepository := proof.NewRepository(db)
-	proofService := proof.NewService(proofRepository, validator, mpClient)
+	proofService := proof.NewService(proofRepository, userService, voucherService, validator, mpClient)
 	proofHandler := proof.NewHTTPHandler(proofService)
 
 	// Auth DI
@@ -73,6 +81,7 @@ func main() {
 		UserHandler:    userHandler,
 		TokenHandler:   tokenHandler,
 		ProofHandler:   proofHandler,
+		VoucherHandler: voucherHandler,
 		AuthHandler:    authHandler,
 		AuthMiddleware: authMiddleware,
 		RateLimiter:    rateLimiter,

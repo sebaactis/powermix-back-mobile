@@ -2,7 +2,7 @@ package proof
 
 import (
 	"context"
-	"time"
+	"errors"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -16,20 +16,15 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) Create(ctx context.Context, proof *ProofRequest) (*Proof, error) {
-	proofCreate := &Proof{
-		UserID:    proof.UserID,
-		ProofMPID: proof.ProofMPID,
-		ProofDate: time.Now(),
-	}
+func (r *Repository) Create(ctx context.Context, proof *Proof) (*Proof, error) {
 
-	err := r.db.WithContext(ctx).Create(proofCreate).Error
+	err := r.db.WithContext(ctx).Create(proof).Error
 
 	if err != nil {
 		return nil, err
 	}
 
-	return proofCreate, nil
+	return proof, nil
 }
 
 func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*Proof, error) {
@@ -46,8 +41,11 @@ func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*P
 func (r *Repository) GetById(ctx context.Context, id string) (*Proof, error) {
 	var proof Proof
 
-	
-	if err := r.db.WithContext(ctx).First(&proof, "proof_mp_id = ?", id).Error; err != nil {
+	err := r.db.WithContext(ctx).First(&proof, "ID_MP = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 
