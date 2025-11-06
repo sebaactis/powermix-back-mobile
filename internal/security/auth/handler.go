@@ -12,6 +12,7 @@ import (
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
+	"github.com/sebaactis/powermix-back-mobile/internal/security/oauth"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 	"golang.org/x/crypto/bcrypt"
@@ -49,6 +50,63 @@ func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 	h.setTokenCookie(w, "accessToken", tokens.AccessToken, jwtx.TokenTypeAccess)
 	h.setTokenCookie(w, "refreshToken", tokens.RefreshToken, jwtx.TokenTypeRefresh)
 	h.respondWithTokens(w, user, tokens)
+}
+
+func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		AccessToken string `json:"access_token"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AccessToken == "" {
+		utils.WriteError(w, http.StatusBadRequest, "Access_token es requerido", nil)
+		return
+	}
+
+	userInfo, err := oauth.GetGoogleUserInfo(r.Context(), body.AccessToken)
+
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "Token de google invalido", map[string]string{"error": err.Error()})
+		return
+	}
+
+	user, err := h.users.FindOrCreateFromOAuth(r.Context(), userInfo)
+
+	if err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, "error al guardar el usuario", map[string]string{"error": err.Error()})
+		return
+	}
+
+	accessToken, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "Error generando el access token", map[string]string{"error": err.Error()})
+		return
+	}
+
+	refreshToken, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeRefresh)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "Error generando el refresh token", map[string]string{"error": err.Error()})
+		return
+	}
+
+	h.tokens.Create(r.Context(), &token.TokenRequest{
+		TokenType: string(jwtx.TokenTypeAccess),
+		Token:     accessToken,
+	})
+
+	h.tokens.Create(r.Context(), &token.TokenRequest{
+		TokenType: string(jwtx.TokenTypeRefresh),
+		Token:     refreshToken,
+	})
+
+	utils.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"user": map[string]interface{}{
+			"id":    user.ID,
+			"email": user.Email,
+			"name":  user.Name,
+		},
+		"accessToken":  accessToken,
+		"refreshToken": refreshToken,
+	})
 }
 
 func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {

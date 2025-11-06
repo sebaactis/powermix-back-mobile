@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
+	"github.com/sebaactis/powermix-back-mobile/internal/security/oauth"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 
 	"golang.org/x/crypto/bcrypt"
@@ -61,6 +62,10 @@ func (s *Service) Create(ctx context.Context, user *UserCreate) (*User, error) {
 	}
 
 	return newUser, nil
+}
+
+func (s *Service) FindOrCreateFromOAuth(ctx context.Context, info *oauth.OAuthUserInfo) (*User, error) {
+	return s.repository.CreateWithOAuth(ctx, info)
 }
 
 func (s *Service) GetByID(ctx context.Context, id uint) (*User, error) {

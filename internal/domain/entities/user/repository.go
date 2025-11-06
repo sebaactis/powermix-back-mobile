@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sebaactis/powermix-back-mobile/internal/security/oauth"
 	"gorm.io/gorm"
 )
 
@@ -17,6 +18,30 @@ func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 
 func (r *Repository) Create(ctx context.Context, user *User) error {
 	return r.db.WithContext(ctx).Create(user).Error
+}
+
+func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserInfo) (*User, error) {
+	var newUser User
+
+	err := r.db.WithContext(ctx).
+		Where("email = ? AND oauth_provider = ?", info.Email, info.Provider).
+		First(&newUser).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		newUser = User{
+			Name:          info.Name,
+			Email:         info.Email,
+			OAuthProvider: info.Provider,
+			OAuthID:       info.ProviderID,
+			StampsCounter: 0,
+		}
+	}
+
+	if err := r.db.WithContext(ctx).Create(&newUser).Error; err != nil {
+		return nil, err
+	}
+
+	return &newUser, nil
 }
 
 func (r *Repository) FindByID(ctx context.Context, id uint) (*User, error) {
@@ -78,9 +103,9 @@ func (r *Repository) Delete(ctx context.Context, id uint) error {
 
 func (r *Repository) IncrementStampsCounter(ctx context.Context, id uuid.UUID) (int, error) {
 	result := r.db.WithContext(ctx).
-	Model(&User{}).
-	Where("id = ?", id).
-	Update("stamps_counter", gorm.Expr("stamps_counter + ?", 1))
+		Model(&User{}).
+		Where("id = ?", id).
+		Update("stamps_counter", gorm.Expr("stamps_counter + ?", 1))
 
 	if result.Error != nil {
 		return 0, result.Error
@@ -101,9 +126,9 @@ func (r *Repository) IncrementStampsCounter(ctx context.Context, id uuid.UUID) (
 
 func (r *Repository) ResetStampsCounter(ctx context.Context, id uuid.UUID) (int, error) {
 	result := r.db.WithContext(ctx).
-	Model(&User{}).
-	Where("id = ?", id).
-	Update("stamps_counter", 0)
+		Model(&User{}).
+		Where("id = ?", id).
+		Update("stamps_counter", 0)
 
 	if result.Error != nil {
 		return 0, result.Error
