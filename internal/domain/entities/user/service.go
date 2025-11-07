@@ -38,15 +38,6 @@ func (s *Service) Create(ctx context.Context, user *UserCreate) (*User, error) {
 		return nil, &validations.ValidationError{Fields: fields}
 	}
 
-	exists, err := s.repository.ExistsByEmail(ctx, email)
-	if err != nil {
-		return nil, err
-	}
-
-	if exists {
-		return nil, ErrDuplicateEmail
-	}
-
 	newUser := &User{
 		Name:     name,
 		Email:    email,

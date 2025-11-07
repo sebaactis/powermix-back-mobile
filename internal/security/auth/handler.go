@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -63,6 +64,8 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userInfo, err := oauth.GetGoogleUserInfo(r.Context(), body.AccessToken)
+
+	log.Printf("🧪 Datos del usuario de Google: %+v\n", userInfo)
 
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "Token de google invalido", map[string]string{"error": err.Error()})
