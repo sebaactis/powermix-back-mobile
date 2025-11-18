@@ -6,10 +6,11 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Email        string `json:"email"`
-	Name         string `json:"name"`
-	Token        string `json:"token"`
-	RefreshToken string `json:"refreshToken"`
+	Email         string `json:"email"`
+	Name          string `json:"name"`
+	StampsCounter int    `json:"stampsCounter"`
+	Token         string `json:"token"`
+	RefreshToken  string `json:"refreshToken"`
 }
 
 type RecoveryPasswordRequest struct {

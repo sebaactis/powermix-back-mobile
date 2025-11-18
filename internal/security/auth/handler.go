@@ -344,6 +344,7 @@ func (h *HTTPHandler) respondWithTokens(w http.ResponseWriter, user *user.User, 
 	response := LoginResponse{
 		Email:        user.Email,
 		Name:         user.Name,
+		StampsCounter: user.StampsCounter,
 		Token:        tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
 	}

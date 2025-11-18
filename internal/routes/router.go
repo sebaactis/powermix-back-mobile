@@ -37,15 +37,15 @@ func Router(d Deps) *chi.Mux {
 		r.Get("/recoveryPassword", d.AuthHandler.RecoveryPasswordRequest)
 		r.Post("/updatePasswordRecovery", d.AuthHandler.UpdatePasswordByRecovery)
 		r.Post("/refreshToken", d.AuthHandler.RefreshToken)
-		
 
 		r.Group(func(pr chi.Router) {
 			pr.Use(d.AuthMiddleware.RequireAuth())
 
 			pr.Get("/user/{id}", d.UserHandler.GetByID)
+			pr.Get("/user/me", d.UserHandler.Me)
 
 			pr.Get("/me/proofs", d.ProofHandler.GetAllByUserId)
-			pr.Get("/me/proofs/{id}", d.ProofHandler.GetById)	
+			pr.Get("/me/proofs/{id}", d.ProofHandler.GetById)
 			pr.Post("/proof", d.ProofHandler.Create)
 		})
 	})

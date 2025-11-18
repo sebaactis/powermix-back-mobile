@@ -19,6 +19,7 @@ type UserResponse struct {
 	Email         string    `json:"email"`
 	LoginAttempts int       `json:"login_attempt"`
 	LockedUntil   string    `json:"locked_until"`
+	StampsCounter int       `json:"stamps_counter"`
 }
 
 type UserRecoveryPassword struct {
@@ -35,6 +36,7 @@ func ToResponse(u *User) *UserResponse {
 		Email:         u.Email,
 		LockedUntil:   u.Locked_until.Truncate(time.Second).String(),
 		LoginAttempts: u.LoginAttempt,
+		StampsCounter: u.StampsCounter,
 	}
 }
 

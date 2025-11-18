@@ -59,7 +59,7 @@ func (s *Service) FindOrCreateFromOAuth(ctx context.Context, info *oauth.OAuthUs
 	return s.repository.CreateWithOAuth(ctx, info)
 }
 
-func (s *Service) GetByID(ctx context.Context, id uint) (*User, error) {
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.repository.FindByID(ctx, id)
 }
 

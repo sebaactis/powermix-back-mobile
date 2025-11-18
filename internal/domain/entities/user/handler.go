@@ -4,20 +4,24 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 )
 
 type HTTPHandler struct {
 	service *Service
+	JWT     *jwtx.JWT
 }
 
-func NewHTTPHandler(service *Service) *HTTPHandler {
+func NewHTTPHandler(service *Service, JWT *jwtx.JWT) *HTTPHandler {
 	return &HTTPHandler{
 		service: service,
+		JWT:     JWT,
 	}
 }
 
@@ -53,14 +57,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 
-	id, err := strconv.Atoi(idStr)
-
-	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, "Id inválido", map[string]string{"error": err.Error()})
-		return
-	}
-
-	u, err := h.service.GetByID(r.Context(), uint(id))
+	u, err := h.service.GetByID(r.Context(), uuid.MustParse(idStr))
 
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "Id inválido", map[string]string{"error": err.Error()})
@@ -68,4 +65,38 @@ func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(ToResponse(u))
+}
+
+func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		utils.WriteError(w, http.StatusBadRequest, "No hay token informado",
+			map[string]string{"error": "No hay token informado"})
+		return
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		utils.WriteError(w, http.StatusBadRequest, "Formato de token inválido",
+			map[string]string{"error": "Authorization debe ser 'Bearer <token>'"})
+		return
+	}
+
+	tokenStr := parts[1]
+
+	userID, _, _, err := h.JWT.Parse(tokenStr, jwtx.TokenTypeAccess)
+	if err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, "Token inválido",
+			map[string]string{"error": err.Error()})
+		return
+	}
+
+	user, err := h.service.GetByID(r.Context(), userID)
+	if err != nil {
+		utils.WriteError(w, http.StatusNotFound, "Usuario no encontrado",
+			map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(ToResponse(user))
 }

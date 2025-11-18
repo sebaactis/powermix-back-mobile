@@ -87,7 +87,7 @@ func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserI
 	return &newUser, nil
 }
 
-func (r *Repository) FindByID(ctx context.Context, id uint) (*User, error) {
+func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	var u User
 
 	if err := r.db.WithContext(ctx).First(&u, id).Error; err != nil {
