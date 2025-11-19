@@ -3,7 +3,6 @@ package user
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -27,7 +26,6 @@ func (r *Repository) Create(ctx context.Context, user *User) error {
 		First(&existing).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// ✅ Usuario no existe, lo creamos
 		return r.db.WithContext(ctx).Create(user).Error
 	}
 
@@ -35,13 +33,11 @@ func (r *Repository) Create(ctx context.Context, user *User) error {
 		return err
 	}
 
-	// 🚨 Ya existe
 	if strings.TrimSpace(existing.Password) != "" {
-	return fmt.Errorf("el email ya está en uso")
-}
+		return ErrDuplicateEmail
+	}
 
-	// 👌 Tiene usuario con OAuth pero sin contraseña → permitimos agregarla
-	existing.Password = user.Password // ya debe venir hasheada
+	existing.Password = user.Password
 	return r.db.WithContext(ctx).Save(&existing).Error
 }
 
@@ -53,7 +49,7 @@ func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserI
 		First(&newUser).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 🆕 No existe → lo creamos
+
 		newUser = User{
 			Name:          info.Name,
 			Email:         info.Email,
@@ -244,4 +240,4 @@ func (r *Repository) UnlockUser(ctx context.Context, id uint) error {
 	return nil
 }
 
-var ErrDuplicateEmail = errors.New("email already in use")
+var ErrDuplicateEmail = errors.New("el email ya esta en uso")
