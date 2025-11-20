@@ -31,19 +31,27 @@ func Router(d Deps) *chi.Mux {
 	r.Use(middlewares.Logger(), middlewares.JSONContentType(), middlewares.Timeout(30*time.Second))
 
 	r.Route("/api/v1", func(r chi.Router) {
+		// Auth
 		r.Post("/register", d.UserHandler.Create)
 		r.Post("/login", d.AuthHandler.Login)
 		r.Post("/login-google", d.AuthHandler.OAuthGoogle)
+
+		// User password
 		r.Get("/recoveryPassword", d.AuthHandler.RecoveryPasswordRequest)
 		r.Post("/updatePasswordRecovery", d.AuthHandler.UpdatePasswordByRecovery)
+
+		// Token
 		r.Post("/refreshToken", d.AuthHandler.RefreshToken)
 
 		r.Group(func(pr chi.Router) {
 			pr.Use(d.AuthMiddleware.RequireAuth())
 
+			// User
 			pr.Get("/user/{id}", d.UserHandler.GetByID)
 			pr.Get("/user/me", d.UserHandler.Me)
+			pr.Put("/user/update", d.UserHandler.Update)
 
+			// Proof
 			pr.Get("/me/proofs", d.ProofHandler.GetAllByUserId)
 			pr.Get("/me/proofs/{id}", d.ProofHandler.GetById)
 			pr.Post("/proof", d.ProofHandler.Create)

@@ -155,3 +155,4 @@ func (j *JWT) GetTTL(tokenType TokenType) time.Duration {
 
 	return ttl
 }
+

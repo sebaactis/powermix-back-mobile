@@ -3,6 +3,7 @@ package user
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -68,23 +69,7 @@ func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		utils.WriteError(w, http.StatusBadRequest, "No hay token informado",
-			map[string]string{"error": "No hay token informado"})
-		return
-	}
-
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		utils.WriteError(w, http.StatusBadRequest, "Formato de token inválido",
-			map[string]string{"error": "Authorization debe ser 'Bearer <token>'"})
-		return
-	}
-
-	tokenStr := parts[1]
-
-	userID, _, _, err := h.JWT.Parse(tokenStr, jwtx.TokenTypeAccess)
+	userID, err := h.getUserIDFromRequest(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, "Token inválido",
 			map[string]string{"error": err.Error()})
@@ -99,4 +84,53 @@ func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(ToResponse(user))
+}
+
+func (h *HTTPHandler) Update(w http.ResponseWriter, r *http.Request) {
+
+	userID, err := h.getUserIDFromRequest(r)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "Token invalido", map[string]string{"error": err.Error()})
+		return
+	}
+
+	var req UserUpdate
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la respuesta, por favor revise los datos enviados", map[string]string{"error": err.Error()})
+		return
+	}
+
+	userUpdate, err := h.service.Update(r.Context(), userID, req)
+
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "No se pudo actualizar el usuario",
+			map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(ToResponse(userUpdate))
+
+}
+
+// Helper privado
+func (h *HTTPHandler) getUserIDFromRequest(r *http.Request) (uuid.UUID, error) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return uuid.Nil, fmt.Errorf("no hay token informado")
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return uuid.Nil, fmt.Errorf("formato de token inválido, debe ser 'Bearer <token>'")
+	}
+
+	tokenStr := parts[1]
+
+	userID, _, _, err := h.JWT.Parse(tokenStr, jwtx.TokenTypeAccess)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("token inválido: %w", err)
+	}
+
+	return userID, nil
 }

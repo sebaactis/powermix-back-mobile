@@ -111,3 +111,21 @@ func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecovery
 
 	return user, nil
 }
+
+func (s *Service) Update(ctx context.Context, userId uuid.UUID, req UserUpdate) (*User, error) {
+	updates := map[string]interface{}{}
+
+	if req.Name != nil {
+		updates["name"] = *req.Name
+	}
+
+	if req.Email != nil {
+		updates["email"] = *req.Email
+	}
+
+	if len(updates) == 0 {
+		return nil, errors.New("no hay campos para actulizar")
+	}
+
+	return s.repository.Update(ctx, userId, updates)
+}
