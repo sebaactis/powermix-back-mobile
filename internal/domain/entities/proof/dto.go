@@ -20,3 +20,13 @@ type ProofResponse struct {
 	Status_MP         string              `json:"status_mp"`
 	Amount_MP         float64             `json:"amount_mp"`
 }
+
+type ProofOthersRequest struct {
+    UserID uuid.UUID `json:"user_id" validate:"required"`
+    Date   string    `json:"date" validate:"required"`   // "18/11/2025"
+    Time   string    `json:"time" validate:"required"`   // "12:11" o "12.11"
+    Amount float64   `json:"amount" validate:"required,gt=0"`
+
+    Last4 *string `json:"last4,omitempty"` // últimos 4 de la tarjeta
+    DNI   *string `json:"dni,omitempty"`   // dni del titular
+}

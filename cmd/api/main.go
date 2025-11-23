@@ -64,8 +64,6 @@ func main() {
 	voucherService := voucher.NewService(voucherRepository)
 	voucherHandler := voucher.NewHTTPHandler(voucherService)
 
-
-
 	// Proof DI
 	proofRepository := proof.NewRepository(db)
 	proofService := proof.NewService(proofRepository, userService, voucherService, validator, mpClient)

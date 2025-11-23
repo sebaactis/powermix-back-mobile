@@ -55,6 +55,8 @@ func Router(d Deps) *chi.Mux {
 			pr.Get("/me/proofs", d.ProofHandler.GetAllByUserId)
 			pr.Get("/me/proofs/{id}", d.ProofHandler.GetById)
 			pr.Post("/proof", d.ProofHandler.Create)
+			pr.Post("/proof/others", d.ProofHandler.CreateFromOthers)
+
 		})
 	})
 
