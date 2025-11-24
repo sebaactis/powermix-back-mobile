@@ -72,7 +72,6 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 	log.Printf("✅ proofResult: %+v", proofResult)
 	log.Printf("✅ quantityStamps: %+v", quantityStamps)
 
-
 	if err != nil {
 		return nil, err
 	}
@@ -106,81 +105,78 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 
 func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest) (*ProofResponse, error) {
 
-    if fields, ok := s.validator.ValidateStruct(req); !ok {
-        return nil, &validations.ValidationError{Fields: fields}
-    }
+	if fields, ok := s.validator.ValidateStruct(req); !ok {
+		return nil, &validations.ValidationError{Fields: fields}
+	}
 
-    // 1) Buscar pago en Mercado Pago usando fecha/hora/monto + opcionales DNI/last4
-    mpReq := mercadopago.ReconcileOthersRequest{
-        Date:   req.Date,
-        Time:   req.Time,
-        Amount: req.Amount,
-        Last4:  req.Last4,
-        DNI:    req.DNI,
-    }
+	mpReq := mercadopago.ReconcileOthersRequest{
+		Date:   req.Date,
+		Time:   req.Time,
+		Amount: req.Amount,
+		Last4:  req.Last4,
+		DNI:    req.DNI,
+	}
 
-    result, err := s.mpClient.ReconcileOthers(ctx, mpReq)
-    if err != nil {
-        return nil, err
-    }
-    if result == nil {
-        return nil, fmt.Errorf("no se encontró un pago en Mercado Pago que coincida con el comprobante")
-    }
+	result, err := s.mpClient.ReconcileOthers(ctx, mpReq)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, fmt.Errorf("no se encontró un pago en Mercado Pago que coincida con el comprobante")
+	}
 
-    // 2) Evitar duplicados: si ya guardaste ese payment_id
-    idMP := fmt.Sprintf("%d", result.PaymentID)
+	idMP := fmt.Sprintf("%d", result.PaymentID)
 
-    proofExistsValidate, err := s.GetById(ctx, idMP)
-    if err != nil {
-        return nil, err
-    }
-    if proofExistsValidate != nil {
-        return nil, fmt.Errorf("ya guardaste un comprobante con este pago de Mercado Pago (ID: %s)", idMP)
-    }
+	proofExistsValidate, err := s.GetById(ctx, idMP)
+	if err != nil {
+		return nil, err
+	}
+	if proofExistsValidate != nil {
+		return nil, fmt.Errorf("ya guardaste un comprobante con este pago de Mercado Pago (ID: %s)", idMP)
+	}
 
-    // 3) Crear la Proof con la info que vino de MP
-    newProof := &Proof{
-        UserID:            req.UserID,
-        ID_MP:             idMP,
-        Date_Approved_MP:  utils.FormattedTime{Time: result.DateApproved.Truncate(time.Second)},
-        Operation_Type_MP: "others", // si querés marcar que vino por opción 2, o usá algo que te sirva
-        Status_MP:         result.Status,
-        Amount_MP:         result.TotalPaidAmount,
-        ProofDate:         utils.NowFormatted(),
-    }
+	newProof := &Proof{
+		UserID:            req.UserID,
+		ID_MP:             idMP,
+		Date_Approved_MP:  utils.FormattedTime{Time: result.DateApproved.Truncate(time.Second)},
+		Operation_Type_MP: "Others",
+		Status_MP:         result.Status,
+		Amount_MP:         result.TotalPaidAmount,
+		ProofDate:         utils.NowFormatted(),
+	}
 
-    proofResult, err := s.repo.Create(ctx, newProof)
-    if err != nil {
-        return nil, err
-    }
+	proofResult, err := s.repo.Create(ctx, newProof)
+	if err != nil {
+		return nil, err
+	}
 
-    quantityStamps, err := s.userService.IncrementStampsCounter(ctx, proofResult.UserID)
-    log.Printf("✅ proofResult (others): %+v", proofResult)
-    log.Printf("✅ quantityStamps (others): %+v", quantityStamps)
-    if err != nil {
-        return nil, err
-    }
+	quantityStamps, err := s.userService.IncrementStampsCounter(ctx, proofResult.UserID)
+	log.Printf("✅ proofResult (others): %+v", proofResult)
+	log.Printf("✅ quantityStamps (others): %+v", quantityStamps)
+	if err != nil {
+		return nil, err
+	}
 
-    if quantityStamps == 10 {
-        _, err = s.voucherService.Create(ctx, &voucher.VoucherRequest{UserID: proofResult.UserID})
-        if err != nil {
-            return nil, err
-        }
-        _, err = s.userService.ResetStampsCounter(ctx, proofResult.UserID)
-        if err != nil {
-            return nil, err
-        }
-    }
+	if quantityStamps == 10 {
+		_, err = s.voucherService.Create(ctx, &voucher.VoucherRequest{UserID: proofResult.UserID})
+		if err != nil {
+			return nil, err
+		}
+		_, err = s.userService.ResetStampsCounter(ctx, proofResult.UserID)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-    return &ProofResponse{
-        UserID:            proofResult.UserID,
-        ID_MP:             proofResult.ID_MP,
-        ProofDate:         proofResult.ProofDate,
-        Status_MP:         proofResult.Status_MP,
-        Date_Approved_MP:  proofResult.Date_Approved_MP,
-        Operation_Type_MP: proofResult.Operation_Type_MP,
-        Amount_MP:         proofResult.Amount_MP,
-    }, nil
+	return &ProofResponse{
+		UserID:            proofResult.UserID,
+		ID_MP:             proofResult.ID_MP,
+		ProofDate:         proofResult.ProofDate,
+		Status_MP:         proofResult.Status_MP,
+		Date_Approved_MP:  proofResult.Date_Approved_MP,
+		Operation_Type_MP: proofResult.Operation_Type_MP,
+		Amount_MP:         proofResult.Amount_MP,
+	}, nil
 }
 
 func (s *Service) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*ProofResponse, error) {

@@ -18,15 +18,10 @@ func NewHTTPHandler(service *Service) *HTTPHandler {
     }
 }
 
-// ----------------------------------------
-// Opción 1: comprobante de Mercado Pago (ID_MP)
-// POST /api/v1/proofs/mp (por ejemplo)
-// ----------------------------------------
 
 func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
     var req ProofRequest
 
-    // Recupero el userID del contexto (token)
     userId, ok := middlewares.UserIDFromContext(r.Context())
     if !ok {
         utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
@@ -38,7 +33,6 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // ✅ No confío en el user_id que venga del body, lo piso con el del contexto
     req.UserID = userId
 
     proof, err := h.service.Create(r.Context(), &req)
@@ -50,15 +44,9 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
     utils.WriteJSON(w, http.StatusCreated, proof)
 }
 
-// ----------------------------------------
-// Opción 2: otros bancos/billeteras
-// POST /api/v1/proofs/others (por ejemplo)
-// ----------------------------------------
-
 func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
     var req ProofOthersRequest
 
-    // Recupero el userID del contexto
     userId, ok := middlewares.UserIDFromContext(r.Context())
     if !ok {
         utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
@@ -70,7 +58,6 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Igual que arriba: siempre uso el ID del contexto
     req.UserID = userId
 
     proof, err := h.service.CreateFromOthers(r.Context(), &req)
@@ -81,10 +68,6 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 
     utils.WriteJSON(w, http.StatusCreated, proof)
 }
-
-// ----------------------------------------
-// GET /api/v1/proofs
-// ----------------------------------------
 
 func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
     userId, ok := middlewares.UserIDFromContext(r.Context())
@@ -102,9 +85,6 @@ func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
     utils.WriteJSON(w, http.StatusOK, proofs)
 }
 
-// ----------------------------------------
-// GET /api/v1/proofs/{id}
-// ----------------------------------------
 
 func (h *HTTPHandler) GetById(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -22,7 +24,63 @@ func NewClient(token string) *Client {
 	}
 }
 
-// ---------- Opción 1: validar pago por ID ----------
+type mpSearchResponse struct {
+	Results []MercadoPagoPayment `json:"results"`
+	Paging  struct {
+		Total  int `json:"total"`
+		Limit  int `json:"limit"`
+		Offset int `json:"offset"`
+	} `json:"paging"`
+}
+
+func parseUserDateTime(dateStr, timeStr string) (time.Time, error) {
+
+	timeStr = strings.ReplaceAll(timeStr, ".", ":")
+
+	loc, err := time.LoadLocation("America/Argentina/Buenos_Aires")
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	layout := "02/01/2006 15:04"
+	return time.ParseInLocation(layout, dateStr+" "+timeStr, loc)
+}
+
+func buildWindow(t time.Time, mins int) (time.Time, time.Time) {
+	d := time.Duration(mins) * time.Minute
+	return t.Add(-d), t.Add(d)
+}
+
+func extractDNI(p *MercadoPagoPayment) *string {
+
+	if p.Card.Cardholder != nil &&
+		p.Card.Cardholder.Identification.Number != nil &&
+		*p.Card.Cardholder.Identification.Number != "" {
+		return p.Card.Cardholder.Identification.Number
+	}
+
+	if p.Payer.Identification.Number != nil && *p.Payer.Identification.Number != "" {
+		return p.Payer.Identification.Number
+	}
+
+	if p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number != nil &&
+		*p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number != "" {
+		return p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number
+	}
+
+	return nil
+}
+
+func extractCardLast4(p *MercadoPagoPayment) *string {
+	if p.Card.LastFourDigits != nil && *p.Card.LastFourDigits != "" {
+		return p.Card.LastFourDigits
+	}
+	return nil
+}
+
+func formatMPDate(t time.Time) string {
+	return t.UTC().Format("2006-01-02T15:04:05.000Z")
+}
 
 func (c *Client) ValidatePaymentExists(ctx context.Context, paymentID string) (*PaymentDTO, error) {
 	url := fmt.Sprintf("https://api.mercadopago.com/v1/payments/%s", paymentID)
@@ -57,15 +115,88 @@ func (c *Client) ValidatePaymentExists(ctx context.Context, paymentID string) (*
 	return payment.ToDTO(), nil
 }
 
-// ---------- Search por ventana de fecha/hora + monto (para opción 2) ----------
+func (c *Client) ReconcileOthers(
+	ctx context.Context,
+	req ReconcileOthersRequest,
+) (*ReconcileOthersResult, error) {
 
-type mpSearchResponse struct {
-	Results []MercadoPagoPayment `json:"results"`
-	Paging  struct {
-		Total  int `json:"total"`
-		Limit  int `json:"limit"`
-		Offset int `json:"offset"`
-	} `json:"paging"`
+	if strings.TrimSpace(req.Date) == "" ||
+		strings.TrimSpace(req.Time) == "" ||
+		req.Amount <= 0 {
+		return nil, fmt.Errorf("fecha, hora y monto son obligatorios")
+	}
+
+	tLocal, err := parseUserDateTime(req.Date, req.Time)
+	if err != nil {
+		return nil, fmt.Errorf("formato fecha/hora inválido: %w", err)
+	}
+
+	begin, end := buildWindow(tLocal, 2)
+
+	payments, err := c.searchPaymentsInWindow(ctx, begin, end, req.Amount)
+	if err != nil {
+		return nil, err
+	}
+
+	loc, _ := time.LoadLocation("America/Argentina/Buenos_Aires")
+
+	var candidates []MercadoPagoPayment
+
+	for _, p := range payments {
+
+		if math.Abs(p.TransactionDetails.TotalPaidAmount-req.Amount) > 0.01 &&
+			math.Abs(p.TransactionAmount-req.Amount) > 0.01 {
+			continue
+		}
+
+		if req.Last4 != nil && *req.Last4 != "" {
+			last4 := extractCardLast4(&p)
+			if last4 == nil || *last4 != *req.Last4 {
+				continue
+			}
+		}
+
+		if req.DNI != nil && *req.DNI != "" {
+			dni := extractDNI(&p)
+			if dni == nil || *dni != *req.DNI {
+				continue
+			}
+		}
+
+		var tMP time.Time
+		if !p.DateApproved.IsZero() {
+			tMP = *p.DateApproved
+		} else {
+			tMP = p.DateCreated
+		}
+
+		tMPLocal := tMP.In(loc)
+		diff := tMPLocal.Sub(tLocal)
+		if diff < -10*time.Minute || diff > 10*time.Minute {
+			continue
+		}
+
+		candidates = append(candidates, p)
+	}
+
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+	if len(candidates) > 1 {
+		return nil, fmt.Errorf("se encontraron múltiples pagos que podrían matchear el comprobante")
+	}
+
+	p := candidates[0]
+
+	return &ReconcileOthersResult{
+		PaymentID:       p.ID,
+		Status:          p.Status,
+		TotalPaidAmount: p.TransactionDetails.TotalPaidAmount,
+		DateApproved:    *p.DateApproved,
+		PayerEmail:      p.Payer.Email,
+		PayerDNI:        extractDNI(&p),
+		CardLast4:       extractCardLast4(&p),
+	}, nil
 }
 
 func (c *Client) searchPaymentsInWindow(
@@ -76,8 +207,8 @@ func (c *Client) searchPaymentsInWindow(
 
 	baseURL := "https://api.mercadopago.com/v1/payments/search"
 
-	beginStr := begin.Format(time.RFC3339)
-	endStr := end.Format(time.RFC3339)
+	beginStr := formatMPDate(begin)
+	endStr := formatMPDate(end)
 
 	limit := 50
 	offset := 0

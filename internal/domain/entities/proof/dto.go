@@ -22,11 +22,11 @@ type ProofResponse struct {
 }
 
 type ProofOthersRequest struct {
-    UserID uuid.UUID `json:"user_id" validate:"required"`
+    UserID uuid.UUID `json:"user_id"`
     Date   string    `json:"date" validate:"required"`   // "18/11/2025"
     Time   string    `json:"time" validate:"required"`   // "12:11" o "12.11"
     Amount float64   `json:"amount" validate:"required,gt=0"`
 
-    Last4 *string `json:"last4,omitempty"` // últimos 4 de la tarjeta
-    DNI   *string `json:"dni,omitempty"`   // dni del titular
+    Last4 *string `json:"last4,omitempty"` 
+    DNI   *string `json:"dni,omitempty"`
 }
