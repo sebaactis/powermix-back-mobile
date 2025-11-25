@@ -33,55 +33,7 @@ type mpSearchResponse struct {
 	} `json:"paging"`
 }
 
-func parseUserDateTime(dateStr, timeStr string) (time.Time, error) {
-
-	timeStr = strings.ReplaceAll(timeStr, ".", ":")
-
-	loc, err := time.LoadLocation("America/Argentina/Buenos_Aires")
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	layout := "02/01/2006 15:04"
-	return time.ParseInLocation(layout, dateStr+" "+timeStr, loc)
-}
-
-func buildWindow(t time.Time, mins int) (time.Time, time.Time) {
-	d := time.Duration(mins) * time.Minute
-	return t.Add(-d), t.Add(d)
-}
-
-func extractDNI(p *MercadoPagoPayment) *string {
-
-	if p.Card.Cardholder != nil &&
-		p.Card.Cardholder.Identification.Number != nil &&
-		*p.Card.Cardholder.Identification.Number != "" {
-		return p.Card.Cardholder.Identification.Number
-	}
-
-	if p.Payer.Identification.Number != nil && *p.Payer.Identification.Number != "" {
-		return p.Payer.Identification.Number
-	}
-
-	if p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number != nil &&
-		*p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number != "" {
-		return p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number
-	}
-
-	return nil
-}
-
-func extractCardLast4(p *MercadoPagoPayment) *string {
-	if p.Card.LastFourDigits != nil && *p.Card.LastFourDigits != "" {
-		return p.Card.LastFourDigits
-	}
-	return nil
-}
-
-func formatMPDate(t time.Time) string {
-	return t.UTC().Format("2006-01-02T15:04:05.000Z")
-}
-
+// Metodo para buscar un pago solo con ID MP
 func (c *Client) ValidatePaymentExists(ctx context.Context, paymentID string) (*PaymentDTO, error) {
 	url := fmt.Sprintf("https://api.mercadopago.com/v1/payments/%s", paymentID)
 
@@ -115,6 +67,7 @@ func (c *Client) ValidatePaymentExists(ctx context.Context, paymentID string) (*
 	return payment.ToDTO(), nil
 }
 
+// Metodo para buscar un pago con datos varios si no tenemos ID MP (pago por otras billeteras por ej)
 func (c *Client) ReconcileOthers(
 	ctx context.Context,
 	req ReconcileOthersRequest,
@@ -123,7 +76,7 @@ func (c *Client) ReconcileOthers(
 	if strings.TrimSpace(req.Date) == "" ||
 		strings.TrimSpace(req.Time) == "" ||
 		req.Amount <= 0 {
-		return nil, fmt.Errorf("fecha, hora y monto son obligatorios")
+		return nil, fmt.Errorf("la fecha, hora y monto del comprobante son datos obligatorios")
 	}
 
 	tLocal, err := parseUserDateTime(req.Date, req.Time)
@@ -172,7 +125,7 @@ func (c *Client) ReconcileOthers(
 
 		tMPLocal := tMP.In(loc)
 		diff := tMPLocal.Sub(tLocal)
-		if diff < -10*time.Minute || diff > 10*time.Minute {
+		if diff < -3*time.Minute || diff > 3*time.Minute {
 			continue
 		}
 
@@ -183,7 +136,7 @@ func (c *Client) ReconcileOthers(
 		return nil, nil
 	}
 	if len(candidates) > 1 {
-		return nil, fmt.Errorf("se encontraron múltiples pagos que podrían matchear el comprobante")
+		return nil, fmt.Errorf("se encontraron múltiples pagos que podrían matchear el comprobante, por favor, de ser posible, agregue mas información")
 	}
 
 	p := candidates[0]
@@ -192,12 +145,17 @@ func (c *Client) ReconcileOthers(
 		PaymentID:       p.ID,
 		Status:          p.Status,
 		TotalPaidAmount: p.TransactionDetails.TotalPaidAmount,
+		OperationType:   p.OperationType,
 		DateApproved:    *p.DateApproved,
 		PayerEmail:      p.Payer.Email,
 		PayerDNI:        extractDNI(&p),
 		CardLast4:       extractCardLast4(&p),
+		CardId:          &p.PaymentMethodId,
+		CardType:        &p.PaymentTypeId,
 	}, nil
 }
+
+//************* FUNCIONES PRIVADAS DEL CLIENTE *************//
 
 func (c *Client) searchPaymentsInWindow(
 	ctx context.Context,
@@ -263,4 +221,53 @@ func (c *Client) searchPaymentsInWindow(
 	}
 
 	return all, nil
+}
+
+func parseUserDateTime(dateStr, timeStr string) (time.Time, error) {
+
+	timeStr = strings.ReplaceAll(timeStr, ".", ":")
+
+	loc, err := time.LoadLocation("America/Argentina/Buenos_Aires")
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	layout := "02/01/2006 15:04"
+	return time.ParseInLocation(layout, dateStr+" "+timeStr, loc)
+}
+
+func buildWindow(t time.Time, mins int) (time.Time, time.Time) {
+	d := time.Duration(mins) * time.Minute
+	return t.Add(-d), t.Add(d)
+}
+
+func extractDNI(p *MercadoPagoPayment) *string {
+
+	if p.Card.Cardholder != nil &&
+		p.Card.Cardholder.Identification.Number != nil &&
+		*p.Card.Cardholder.Identification.Number != "" {
+		return p.Card.Cardholder.Identification.Number
+	}
+
+	if p.Payer.Identification.Number != nil && *p.Payer.Identification.Number != "" {
+		return p.Payer.Identification.Number
+	}
+
+	if p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number != nil &&
+		*p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number != "" {
+		return p.PointOfInteraction.TransactionData.BankInfo.Payer.Identification.Number
+	}
+
+	return nil
+}
+
+func extractCardLast4(p *MercadoPagoPayment) *string {
+	if p.Card.LastFourDigits != nil && *p.Card.LastFourDigits != "" {
+		return p.Card.LastFourDigits
+	}
+	return nil
+}
+
+func formatMPDate(t time.Time) string {
+	return t.UTC().Format("2006-01-02T15:04:05.000Z")
 }

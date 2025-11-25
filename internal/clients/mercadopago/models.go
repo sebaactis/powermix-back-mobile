@@ -46,16 +46,14 @@ type TransactionDetails struct {
 	TotalPaidAmount float64 `json:"total_paid_amount"`
 }
 
-
 type MercadoPagoPayment struct {
 	ID int64 `json:"id"`
 
 	Status        string `json:"status"`
 	OperationType string `json:"operation_type"`
 
-
 	DateApproved *time.Time `json:"date_approved"`
-	DateCreated time.Time `json:"date_created"`
+	DateCreated  time.Time  `json:"date_created"`
 
 	TransactionAmount  float64            `json:"transaction_amount"`
 	TransactionDetails TransactionDetails `json:"transaction_details"`
@@ -64,8 +62,10 @@ type MercadoPagoPayment struct {
 	Card  CardInfo `json:"card"`
 
 	PointOfInteraction PointOfInteraction `json:"point_of_interaction"`
-}
 
+	PaymentMethodId string `json:"payment_method_id"`
+	PaymentTypeId   string `json:"payment_type_id"`
+}
 
 type PaymentDTO struct {
 	DateApproved    time.Time `json:"date_approved"`
@@ -89,8 +89,8 @@ func (mp *MercadoPagoPayment) ToDTO() *PaymentDTO {
 }
 
 type ReconcileOthersRequest struct {
-	Date   string  `json:"date"`   // "18/11/2025"
-	Time   string  `json:"time"`   // "12:11" o "12.11"
+	Date   string  `json:"date"` // "18/11/2025"
+	Time   string  `json:"time"` // "12:11" o "12.11"
 	Amount float64 `json:"amount"`
 
 	Last4 *string `json:"last4"`
@@ -101,8 +101,11 @@ type ReconcileOthersResult struct {
 	PaymentID       int64     `json:"payment_id"`
 	Status          string    `json:"status"`
 	TotalPaidAmount float64   `json:"total_paid_amount"`
+	OperationType   string    `json:"operation_type"`
 	DateApproved    time.Time `json:"date_approved"`
 	PayerEmail      *string   `json:"payer_email"`
 	PayerDNI        *string   `json:"payer_dni"`
 	CardLast4       *string   `json:"card_last4"`
+	CardId          *string   `json:"card_id"`
+	CardType        *string   `json:"card_type"`
 }

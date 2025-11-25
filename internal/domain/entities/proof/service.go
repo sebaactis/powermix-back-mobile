@@ -40,7 +40,7 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 	}
 
 	if proofExistsValidate != nil {
-		return nil, fmt.Errorf("ya guardaste un comprobante con este ID: %s", proof.ID_MP)
+		return nil, fmt.Errorf("ya tenes guardado un comprobante con este ID: %s", proof.ID_MP)
 	}
 
 	payment, err := s.mpClient.ValidatePaymentExists(ctx, proof.ID_MP)
@@ -48,7 +48,7 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 		return nil, err
 	}
 	if payment == nil {
-		return nil, fmt.Errorf("el comprobante %s no existe en Mercado Pago", proof.ID_MP)
+		return nil, fmt.Errorf("el comprobante %s no existe, por favor, verifique los datos ingresados", proof.ID_MP)
 	}
 
 	newProof := &Proof{
@@ -68,9 +68,6 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 	}
 
 	quantityStamps, err := s.userService.IncrementStampsCounter(ctx, proofResult.UserID)
-
-	log.Printf("✅ proofResult: %+v", proofResult)
-	log.Printf("✅ quantityStamps: %+v", quantityStamps)
 
 	if err != nil {
 		return nil, err
@@ -122,7 +119,7 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 		return nil, err
 	}
 	if result == nil {
-		return nil, fmt.Errorf("no se encontró un pago en Mercado Pago que coincida con el comprobante")
+		return nil, fmt.Errorf("no se encontró un pago que coincida con los datos ingresados")
 	}
 
 	idMP := fmt.Sprintf("%d", result.PaymentID)
@@ -138,11 +135,15 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 	newProof := &Proof{
 		UserID:            req.UserID,
 		ID_MP:             idMP,
-		Date_Approved_MP:  utils.FormattedTime{Time: result.DateApproved.Truncate(time.Second)},
-		Operation_Type_MP: "Others",
+		Date_Approved_MP:  utils.FormattedTime{Time: result.DateApproved.Add(time.Hour).Truncate(time.Second)},
+		Operation_Type_MP: result.OperationType,
 		Status_MP:         result.Status,
 		Amount_MP:         result.TotalPaidAmount,
 		ProofDate:         utils.NowFormatted(),
+		Dni:               result.PayerDNI,
+		CardId:            result.CardId,
+		CardType:          result.CardType,
+		Last4Card:         result.CardLast4,
 	}
 
 	proofResult, err := s.repo.Create(ctx, newProof)
@@ -151,8 +152,10 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 	}
 
 	quantityStamps, err := s.userService.IncrementStampsCounter(ctx, proofResult.UserID)
+
 	log.Printf("✅ proofResult (others): %+v", proofResult)
 	log.Printf("✅ quantityStamps (others): %+v", quantityStamps)
+
 	if err != nil {
 		return nil, err
 	}
