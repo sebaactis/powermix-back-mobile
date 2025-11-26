@@ -85,6 +85,22 @@ func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
     utils.WriteJSON(w, http.StatusOK, proofs)
 }
 
+func (h *HTTPHandler) GetLastThreeByUserId(w http.ResponseWriter, r *http.Request) {
+    userId, ok := middlewares.UserIDFromContext(r.Context())
+    if !ok {
+        utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+        return
+    }
+
+    proofs, err := h.service.GetLastThreeByUserId(r.Context(), userId)
+    if err != nil {
+        utils.WriteError(w, http.StatusBadRequest, "No se pudieron recuperar los comprobantes del usuario", nil)
+        return
+    }
+
+    utils.WriteJSON(w, http.StatusOK, proofs)
+}
+
 
 func (h *HTTPHandler) GetById(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")

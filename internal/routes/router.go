@@ -52,8 +52,9 @@ func Router(d Deps) *chi.Mux {
 			pr.Put("/user/update", d.UserHandler.Update)
 
 			// Proof
-			pr.Get("/me/proofs", d.ProofHandler.GetAllByUserId)
-			pr.Get("/me/proofs/{id}", d.ProofHandler.GetById)
+			pr.Get("/proofs/me", d.ProofHandler.GetAllByUserId)
+			pr.Get("/proofs/me/last3", d.ProofHandler.GetLastThreeByUserId)
+			pr.Get("/proofs/me/{id}", d.ProofHandler.GetById)
 			pr.Post("/proof", d.ProofHandler.Create)
 			pr.Post("/proof/others", d.ProofHandler.CreateFromOthers)
 

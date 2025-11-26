@@ -38,6 +38,22 @@ func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*P
 	return proofs, nil
 }
 
+func (r *Repository) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID) ([]*Proof, error) {
+	var proofs []*Proof
+
+	result := r.db.WithContext(ctx).
+		Where("user_id = ?", userId).
+		Order("proof_date DESC").
+		Limit(3).
+		Find(&proofs)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return proofs, nil
+}
+
 func (r *Repository) GetById(ctx context.Context, id string) (*Proof, error) {
 	var proof Proof
 

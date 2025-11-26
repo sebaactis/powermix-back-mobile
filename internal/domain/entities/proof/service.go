@@ -208,6 +208,32 @@ func (s *Service) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*Proo
 
 }
 
+func (s *Service) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID) ([]*ProofResponse, error) {
+
+	var proofsResponse []*ProofResponse
+
+	proofs, err := s.repo.GetLastThreeByUserId(ctx, userId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range proofs {
+		proofsResponse = append(proofsResponse, &ProofResponse{
+			UserID:            proofs[i].UserID,
+			ID_MP:             proofs[i].ID_MP,
+			ProofDate:         proofs[i].ProofDate,
+			Status_MP:         proofs[i].Status_MP,
+			Date_Approved_MP:  proofs[i].Date_Approved_MP,
+			Operation_Type_MP: proofs[i].Operation_Type_MP,
+			Amount_MP:         proofs[i].Amount_MP,
+		})
+	}
+
+	return proofsResponse, nil
+
+}
+
 func (s *Service) GetById(ctx context.Context, id string) (*ProofResponse, error) {
 	if id == "" {
 		return nil, errors.New("id es requerido")
