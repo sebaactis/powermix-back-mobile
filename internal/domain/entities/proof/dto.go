@@ -1,6 +1,8 @@
 package proof
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 )
@@ -39,4 +41,12 @@ type PaginatedProofResponse struct {
 	PageSize int              `json:"pageSize"`
 	Total    int64            `json:"total"`
 	HasMore  bool             `json:"hasMore"`
+}
+
+type ProofFilters struct {
+	ID_MP string
+	FromProofDate *time.Time
+	ToProofDate *time.Time
+	MinAmount *float64
+	MaxAmount *float64
 }

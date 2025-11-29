@@ -38,7 +38,7 @@ func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*P
 	return proofs, nil
 }
 
-func (r *Repository) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID, page int, pageSize int) ([]*Proof, int64, error) {
+func (r *Repository) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID, page int, pageSize int, filters ProofFilters) ([]*Proof, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -50,6 +50,25 @@ func (r *Repository) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UU
 	var total int64
 
 	baseQuery := r.db.WithContext(ctx).Model(&Proof{}).Where("user_id = ?", userId)
+
+	// FILTROS
+	if filters.ID_MP != "" {
+		baseQuery = baseQuery.Where("id_mp ILIKE ?", "%"+filters.ID_MP+"%")
+	}
+
+	if filters.FromProofDate != nil {
+		baseQuery = baseQuery.Where("date_approved_mp::timestamp >= ?", *filters.FromProofDate)
+	}
+	if filters.ToProofDate != nil {
+		baseQuery = baseQuery.Where("date_approved_mp::timestamp <= ?", *filters.ToProofDate)
+	}
+
+	if filters.MinAmount != nil {
+		baseQuery = baseQuery.Where("amount_mp >= ?", *filters.MinAmount)
+	}
+	if filters.MaxAmount != nil {
+		baseQuery = baseQuery.Where("amount_mp <= ?", *filters.MaxAmount)
+	}
 
 	if err := baseQuery.Count(&total).Error; err != nil {
 		return nil, 0, err

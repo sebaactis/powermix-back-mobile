@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
@@ -112,7 +113,39 @@ func (h *HTTPHandler) GetAllByUserIdPaginated(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	proofsPage, err := h.service.GetAllByUserIdPaginated(r.Context(), userId, page, pageSize)
+	var filters ProofFilters
+
+	// 1) proofId
+	filters.ID_MP = q.Get("id_mp")
+
+	// 2) fechas de subida: fromProofDate / toProofDate (YYYY-MM-DD)
+	const dateLayout = "2006-01-02"
+
+	if fromStr := q.Get("fromProofDate"); fromStr != "" {
+		if t, err := time.Parse(dateLayout, fromStr); err == nil {
+			filters.FromProofDate = &t
+		}
+	}
+
+	if toStr := q.Get("toProofDate"); toStr != "" {
+		if t, err := time.Parse(dateLayout, toStr); err == nil {
+			filters.ToProofDate = &t
+		}
+	}
+
+	if minStr := q.Get("minAmount"); minStr != "" {
+		if v, err := strconv.ParseFloat(minStr, 64); err == nil {
+			filters.MinAmount = &v
+		}
+	}
+
+	if maxStr := q.Get("maxAmount"); maxStr != "" {
+		if v, err := strconv.ParseFloat(maxStr, 64); err == nil {
+			filters.MaxAmount = &v
+		}
+	}
+
+	proofsPage, err := h.service.GetAllByUserIdPaginated(r.Context(), userId, page, pageSize, filters)
 
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "No se pudieron recuperar los comprobantes del usuario", nil)

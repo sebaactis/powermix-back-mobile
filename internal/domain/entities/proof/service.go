@@ -208,8 +208,8 @@ func (s *Service) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*Proo
 
 }
 
-func (s *Service) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID, page int, pageSize int) (*PaginatedProofResponse, error) {
-	proofs, total, err := s.repo.GetAllByUserIdPaginated(ctx, userId, page, pageSize)
+func (s *Service) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID, page int, pageSize int, filters ProofFilters) (*PaginatedProofResponse, error) {
+	proofs, total, err := s.repo.GetAllByUserIdPaginated(ctx, userId, page, pageSize, filters)
 
 	if err != nil {
 		return nil, err
