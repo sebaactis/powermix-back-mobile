@@ -53,6 +53,7 @@ func Router(d Deps) *chi.Mux {
 
 			// Proof
 			pr.Get("/proofs/me", d.ProofHandler.GetAllByUserId)
+			pr.Get("/proofs/me/paginated", d.ProofHandler.GetAllByUserIdPaginated)
 			pr.Get("/proofs/me/last3", d.ProofHandler.GetLastThreeByUserId)
 			pr.Get("/proofs/me/{id}", d.ProofHandler.GetById)
 			pr.Post("/proof", d.ProofHandler.Create)

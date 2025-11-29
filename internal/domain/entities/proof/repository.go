@@ -38,6 +38,37 @@ func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*P
 	return proofs, nil
 }
 
+func (r *Repository) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID, page int, pageSize int) ([]*Proof, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	var total int64
+
+	baseQuery := r.db.WithContext(ctx).Model(&Proof{}).Where("user_id = ?", userId)
+
+	if err := baseQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var proofs []*Proof
+	offset := (page - 1) * pageSize
+
+	if err := baseQuery.
+		Order("proof_date DESC").
+		Limit(pageSize).
+		Offset(offset).
+		Find(&proofs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return proofs, total, nil
+}
+
 func (r *Repository) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID) ([]*Proof, error) {
 	var proofs []*Proof
 

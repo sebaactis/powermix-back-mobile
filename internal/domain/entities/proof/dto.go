@@ -32,3 +32,11 @@ type ProofResponse struct {
 	CardType          *string             `json:"card_type,omitempty"`
 	Last4Card         *string             `json:"last4_card,omitempty"`
 }
+
+type PaginatedProofResponse struct {
+	Items    []*ProofResponse `json:"items"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"pageSize"`
+	Total    int64            `json:"total"`
+	HasMore  bool             `json:"hasMore"`
+}

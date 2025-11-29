@@ -208,6 +208,38 @@ func (s *Service) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*Proo
 
 }
 
+func (s *Service) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID, page int, pageSize int) (*PaginatedProofResponse, error) {
+	proofs, total, err := s.repo.GetAllByUserIdPaginated(ctx, userId, page, pageSize)
+
+	if err != nil {
+		return nil, err
+	}
+
+	proofsResponse := make([]*ProofResponse, len(proofs))
+
+	for i := range proofs {
+		proofsResponse[i] = &ProofResponse{
+			UserID:            proofs[i].UserID,
+			ID_MP:             proofs[i].ID_MP,
+			ProofDate:         proofs[i].ProofDate,
+			Status_MP:         proofs[i].Status_MP,
+			Date_Approved_MP:  proofs[i].Date_Approved_MP,
+			Operation_Type_MP: proofs[i].Operation_Type_MP,
+			Amount_MP:         proofs[i].Amount_MP,
+		}
+	}
+
+	resp := &PaginatedProofResponse{
+		Items:    proofsResponse,
+		Page:     page,
+		PageSize: pageSize,
+		Total:    total,
+		HasMore:  int64(page*pageSize) < total,
+	}
+
+	return resp, nil
+}
+
 func (s *Service) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID) ([]*ProofResponse, error) {
 
 	var proofsResponse []*ProofResponse
