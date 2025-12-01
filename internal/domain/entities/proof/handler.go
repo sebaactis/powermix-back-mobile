@@ -42,7 +42,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, proof)
+	utils.WriteSuccess(w, http.StatusCreated, proof)
 }
 
 func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +67,7 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, proof)
+	utils.WriteSuccess(w, http.StatusCreated, proof)
 }
 
 func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +83,7 @@ func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, proofs)
+	utils.WriteSuccess(w, http.StatusOK, proofs)
 }
 
 func (h *HTTPHandler) GetAllByUserIdPaginated(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +152,7 @@ func (h *HTTPHandler) GetAllByUserIdPaginated(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, proofsPage)
+	utils.WriteSuccess(w, http.StatusOK, proofsPage)
 }
 
 func (h *HTTPHandler) GetLastThreeByUserId(w http.ResponseWriter, r *http.Request) {
@@ -168,7 +168,7 @@ func (h *HTTPHandler) GetLastThreeByUserId(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, proofs)
+	utils.WriteSuccess(w, http.StatusOK, proofs)
 }
 
 func (h *HTTPHandler) GetById(w http.ResponseWriter, r *http.Request) {
@@ -185,5 +185,5 @@ func (h *HTTPHandler) GetById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, proof)
+	utils.WriteSuccess(w, http.StatusOK, proof)
 }

@@ -51,8 +51,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(ToResponse(u))
+	utils.WriteSuccess(w, http.StatusCreated, ToResponse(u))
 }
 
 func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +64,7 @@ func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(ToResponse(u))
+	utils.WriteSuccess(w, http.StatusOK, ToResponse(u))
 }
 
 func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +82,7 @@ func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(ToResponse(user))
+	utils.WriteSuccess(w, http.StatusOK, ToResponse(user))
 }
 
 func (h *HTTPHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +108,34 @@ func (h *HTTPHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(ToResponse(userUpdate))
+	utils.WriteSuccess(w, http.StatusOK, ToResponse(userUpdate))
+}
+
+func (h *HTTPHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
+
+	userID, err := h.getUserIDFromRequest(r)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "Token invalido", map[string]string{"error": err.Error()})
+		return
+	}
+
+	var req UserChangePassword
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la respuesta, por favor revise los datos enviados", map[string]string{"error": err.Error()})
+		return
+	}
+
+
+	userUpdate, err := h.service.UpdatePassword(r.Context(), userID, req)
+
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "No se pudo actualizar el usuario",
+			map[string]string{"error": err.Error()})
+		return
+	}
+
+	utils.WriteSuccess(w, http.StatusOK, ToResponse(userUpdate))
 
 }
 

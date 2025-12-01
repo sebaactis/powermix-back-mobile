@@ -5,16 +5,44 @@ import (
 	"net/http"
 )
 
-type ErrBody struct {
-	Error   string            `json:"error"`
-	Details map[string]string `json:"details,omitempty"`
+type APIResponse struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+	Error   interface{} `json:"error"`
 }
 
-func WriteJSON(w http.ResponseWriter, status int, v any) {
+type APIError struct {
+	Message string      `json:"message"`
+	Fields  interface{} `json:"fields,omitempty"`
+}
+
+func WriteSuccess(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+
+	resp := APIResponse{
+		Success: true,
+		Data:    data,
+		Error:   nil,
+	}
+
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
-func WriteError(w http.ResponseWriter, status int, msg string, details map[string]string) {
-	WriteJSON(w, status, ErrBody{Error: msg, Details: details})
+func WriteError(w http.ResponseWriter, statusCode int, message string, fields interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
+	apiErr := APIError{
+		Message: message,
+		Fields:  fields,
+	}
+
+	resp := APIResponse{
+		Success: false,
+		Data:    nil,
+		Error:   apiErr,
+	}
+
+	_ = json.NewEncoder(w).Encode(resp)
 }

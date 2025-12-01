@@ -101,7 +101,9 @@ func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecovery
 		return nil, err
 	}
 
-	if err = s.repository.UpdatePassword(ctx, user.ID, string(passwordHash)); err != nil {
+	user, err = s.repository.UpdatePassword(ctx, user.ID, string(passwordHash))
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -110,6 +112,26 @@ func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecovery
 	}
 
 	return user, nil
+}
+
+func (s *Service) UpdatePassword(ctx context.Context, userId uuid.UUID, req UserChangePassword) (*User, error) {
+	if fields, ok := s.validator.ValidateStruct(req); !ok {
+		return nil, &validations.ValidationError{Fields: fields}
+	}
+
+	_, err := s.repository.FindByID(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(req.NewPassword)), bcrypt.DefaultCost)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return s.repository.UpdatePassword(ctx, userId, string(passwordHash))
+
 }
 
 func (s *Service) Update(ctx context.Context, userId uuid.UUID, req UserUpdate) (*User, error) {

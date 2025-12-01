@@ -34,6 +34,12 @@ type UserRecoveryPassword struct {
 	ConfirmPassword string `json:"confirmPassword" validate:"required,min=8,max=30,eqfield=Password"`
 }
 
+type UserChangePassword struct {
+	Password        string     `json:"currentPassword" validate:"required,min=8,max=30"`
+	NewPassword     string     `json:"newPassword" validate:"required,min=8,max=30"`
+	ConfirmPassword string     `json:"confirmPassword" validate:"required,min=8,max=30,eqfield=NewPassword"`
+}
+
 func ToResponse(u *User) *UserResponse {
 	return &UserResponse{
 		ID:            u.ID,

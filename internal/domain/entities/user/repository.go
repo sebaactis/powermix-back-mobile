@@ -136,12 +136,26 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, updates map[strin
 	return user, nil
 }
 
-func (r *Repository) UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) error {
-	_, err := r.Update(ctx, id, map[string]interface{}{
-		"password": hashedPassword,
-	})
+func (r *Repository) UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) (*User, error) {
+	result := r.db.WithContext(ctx).
+		Model(&User{}).
+		Where("id = ?", id).UpdateColumn("password", hashedPassword)
 
-	return err
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return nil, errors.New("Usuario no encontrado")
+	}
+
+	user, err := r.FindByID(ctx, id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (r *Repository) Delete(ctx context.Context, id uint) error {

@@ -24,6 +24,5 @@ func (h *HTTPHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, ToResponseMany(tokens))
-
+	utils.WriteSuccess(w, http.StatusOK, ToResponseMany(tokens))
 }

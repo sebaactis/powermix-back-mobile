@@ -33,5 +33,5 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, v)
+	utils.WriteSuccess(w, http.StatusCreated, v)
 }

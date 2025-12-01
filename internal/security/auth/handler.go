@@ -101,7 +101,7 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 		Token:     refreshToken,
 	})
 
-	utils.WriteJSON(w, http.StatusOK, map[string]interface{}{
+	utils.WriteSuccess(w, http.StatusOK, map[string]interface{}{
 		"user": map[string]interface{}{
 			"id":    user.ID,
 			"email": user.Email,
@@ -153,7 +153,7 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Devolver al frontend
-	utils.WriteJSON(w, http.StatusOK, map[string]string{
+	utils.WriteSuccess(w, http.StatusOK, map[string]string{
 		"accessToken":  newAccessToken,
 		"refreshToken": newRefreshToken,
 	})
@@ -186,7 +186,7 @@ func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Req
 		Token: *token,
 	}
 
-	utils.WriteJSON(w, http.StatusOK, response)
+	utils.WriteSuccess(w, http.StatusOK, response)
 }
 
 func (h *HTTPHandler) UnlockUser(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +222,7 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, user.ToResponse(userRecovery))
+	utils.WriteSuccess(w, http.StatusOK, user.ToResponse(userRecovery))
 
 }
 
