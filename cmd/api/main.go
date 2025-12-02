@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/sebaactis/powermix-back-mobile/internal/clients/coffeeji"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/mercadopago"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
@@ -49,6 +50,9 @@ func main() {
 	// MP
 	mpClient := mercadopago.NewClient(cfg.MercagoPagoToken)
 
+	// Coffeji
+	coffejiClient := coffeeji.NewClient(cfg.CoffejiKey, cfg.CoffejiSecret)
+
 	// Token DI
 	tokenRepository := token.NewRepository(db)
 	tokenService := token.NewService(tokenRepository, validator)
@@ -66,7 +70,7 @@ func main() {
 
 	// Proof DI
 	proofRepository := proof.NewRepository(db)
-	proofService := proof.NewService(proofRepository, userService, voucherService, validator, mpClient)
+	proofService := proof.NewService(proofRepository, userService, voucherService, validator, mpClient, coffejiClient)
 	proofHandler := proof.NewHTTPHandler(proofService)
 
 	// Auth DI

@@ -7,6 +7,8 @@ type Config struct {
 	Driver           string
 	DSN              string
 	MercagoPagoToken string
+	CoffejiKey       string
+	CoffejiSecret    string
 }
 
 func getEnv(key, def string) string {
@@ -22,5 +24,7 @@ func Load() Config {
 		Driver:           getEnv("DB_DRIVER", "postgres"),
 		DSN:              getEnv("DSN", "host=localhost user=postgres password=postgres dbname=powermixdb port=5432 sslmode=disable"),
 		MercagoPagoToken: getEnv("MERCAGO_PAGO_TOKEN", "TEST"),
+		CoffejiKey:       getEnv("COFFEJI_KEY", "TEST"),
+		CoffejiSecret:    getEnv("COFFEJI_SECRET", "TEST"),
 	}
 }

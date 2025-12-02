@@ -115,10 +115,8 @@ func (h *HTTPHandler) GetAllByUserIdPaginated(w http.ResponseWriter, r *http.Req
 
 	var filters ProofFilters
 
-	// 1) proofId
 	filters.ID_MP = q.Get("id_mp")
 
-	// 2) fechas de subida: fromProofDate / toProofDate (YYYY-MM-DD)
 	const dateLayout = "2006-01-02"
 
 	if fromStr := q.Get("fromProofDate"); fromStr != "" {

@@ -63,15 +63,23 @@ type MercadoPagoPayment struct {
 
 	PointOfInteraction PointOfInteraction `json:"point_of_interaction"`
 
-	PaymentMethodId string `json:"payment_method_id"`
-	PaymentTypeId   string `json:"payment_type_id"`
+	PaymentMethodId   string `json:"payment_method_id"`
+	PaymentTypeId     string `json:"payment_type_id"`
+	ExternalReference string `json:"external_reference"`
 }
 
 type PaymentDTO struct {
-	DateApproved    time.Time `json:"date_approved"`
-	OperationType   string    `json:"operation_type"`
+	PaymentID       int64     `json:"payment_id"`
 	Status          string    `json:"status"`
 	TotalPaidAmount float64   `json:"total_paid_amount"`
+	OperationType   string    `json:"operation_type"`
+	DateApproved    time.Time `json:"date_approved"`
+	PayerEmail      *string   `json:"payer_email"`
+	PayerDNI        *string   `json:"payer_dni"`
+	CardLast4       *string   `json:"card_last4"`
+	CardId          *string   `json:"card_id"`
+	CardType        *string   `json:"card_type"`
+	ExternalID      *string   `json:"external_id"`
 }
 
 func (mp *MercadoPagoPayment) ToDTO() *PaymentDTO {
@@ -81,10 +89,18 @@ func (mp *MercadoPagoPayment) ToDTO() *PaymentDTO {
 	}
 
 	return &PaymentDTO{
+		PaymentID:       mp.ID,
+		PayerEmail:      mp.Payer.Email,
+		PayerDNI:        mp.Payer.Identification.Number,
+		CardLast4:       mp.Card.LastFourDigits,
+		CardId:          &mp.PaymentMethodId,
+		CardType:        &mp.PaymentTypeId,
+		ExternalID:      &mp.ExternalReference,
 		DateApproved:    t,
 		OperationType:   mp.OperationType,
 		Status:          mp.Status,
 		TotalPaidAmount: mp.TransactionDetails.TotalPaidAmount,
+
 	}
 }
 
@@ -108,4 +124,5 @@ type ReconcileOthersResult struct {
 	CardLast4       *string   `json:"card_last4"`
 	CardId          *string   `json:"card_id"`
 	CardType        *string   `json:"card_type"`
+	ExternalID      *string   `json:"external_id"`
 }

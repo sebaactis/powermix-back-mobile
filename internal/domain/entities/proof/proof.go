@@ -18,4 +18,6 @@ type Proof struct {
 	CardId            *string
 	CardType          *string
 	Last4Card         *string
+	ExternalID        *string
+	ProductName       *string
 }

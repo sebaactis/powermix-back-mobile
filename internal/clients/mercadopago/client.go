@@ -67,7 +67,7 @@ func (c *Client) ValidatePaymentExists(ctx context.Context, paymentID string) (*
 	return payment.ToDTO(), nil
 }
 
-// Metodo para buscar un pago con datos varios si no tenemos ID MP (pago por otras billeteras por ej)
+
 func (c *Client) ReconcileOthers(
 	ctx context.Context,
 	req ReconcileOthersRequest,
@@ -152,6 +152,7 @@ func (c *Client) ReconcileOthers(
 		CardLast4:       extractCardLast4(&p),
 		CardId:          &p.PaymentMethodId,
 		CardType:        &p.PaymentTypeId,
+		ExternalID:      &p.ExternalReference,
 	}, nil
 }
 
