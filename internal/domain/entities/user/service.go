@@ -14,6 +14,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrSameName = errors.New("el nombre no puede ser igual al actual")
+
 type Service struct {
 	repository   *Repository
 	tokenService *token.Service
@@ -137,12 +139,22 @@ func (s *Service) UpdatePassword(ctx context.Context, userId uuid.UUID, req User
 func (s *Service) Update(ctx context.Context, userId uuid.UUID, req UserUpdate) (*User, error) {
 	updates := map[string]interface{}{}
 
-	if req.Name != nil {
-		updates["name"] = *req.Name
+	user, err := s.GetByID(ctx, userId)
+
+	if err != nil {
+		return nil, err
 	}
 
-	if req.Email != nil {
-		updates["email"] = *req.Email
+	if strings.EqualFold(user.Name, *req.Name) {
+		return nil, ErrSameName
+	}
+
+	if fields, ok := s.validator.ValidateStruct(req); !ok {
+		return nil, &validations.ValidationError{Fields: fields}
+	}
+
+	if req.Name != nil {
+		updates["name"] = *req.Name
 	}
 
 	if len(updates) == 0 {

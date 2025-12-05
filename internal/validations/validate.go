@@ -25,19 +25,19 @@ func (val *Validator) ValidateStruct(dst any) (map[string]string, bool) {
 			field := fe.Field()
 			switch fe.Tag() {
 			case "required":
-				fieldErrs[field] = "is required"
+				fieldErrs[field] = "Es requerido"
 			case "email":
-				fieldErrs[field] = "must be a valid email"
+				fieldErrs[field] = "Tenes que ingresar un mail válido"
 			case "gt":
-				fieldErrs[field] = "must be greater than " + fe.Param()
+				fieldErrs[field] = "Tiene que ser mayor a: " + fe.Param()
 			case "min":
-				fieldErrs[field] = "min length " + fe.Param()
+				fieldErrs[field] = "Los caracteres deben ser al menos: " + fe.Param()
 			case "max":
-				fieldErrs[field] = "max length " + fe.Param()
+				fieldErrs[field] = "Los caracteres deben ser maximo de: " + fe.Param()
 			case "nefield":
-				fieldErrs[field] = "must be different from " + fe.Param()
+				fieldErrs[field] = "Tiene que ser diferente de " + fe.Param()
 			case "eqfield":
-				fieldErrs[field] = "must be equal to " + fe.Param()
+				fieldErrs[field] = "Tiene que ser igual que " + fe.Param()
 			default:
 				fieldErrs[field] = strings.ToLower(fe.Tag())
 			}
