@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
 	"gorm.io/gorm"
 )
 
@@ -45,6 +46,27 @@ func (r *Repository) GetByToken(ctx context.Context, tokenIn string) (*Token, er
 	}
 
 	return &token, nil
+}
+
+func (r *Repository) GetValidResetPasswordToken(ctx context.Context, tokenIn string, now time.Time) (*Token, error) {
+	var t Token
+
+	err := r.db.WithContext(ctx).
+		Where("token = ?", tokenIn).
+		Where("token_type = ?", string(jwtx.TokenTypeResetPassword)).
+		Where("is_revoked = ?", false).
+		Where("expires_at > ?", now).
+		First(&t).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("token inválido o expirado")
+		}
+
+		return nil, errors.New("error inesperado al buscar el token de recuperación")
+	}
+
+	return &t, nil
 }
 
 func (r *Repository) Update(ctx context.Context, token string, updates map[string]interface{}) error {

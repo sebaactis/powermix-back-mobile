@@ -14,7 +14,7 @@ type UserCreate struct {
 }
 
 type UserUpdate struct {
-	Name  *string `json:"name" validate:"min=6,max=30"`
+	Name *string `json:"name" validate:"min=6,max=30"`
 }
 
 type UserResponse struct {
@@ -27,16 +27,16 @@ type UserResponse struct {
 }
 
 type UserRecoveryPassword struct {
-	Email           string `json:"email" validate:"required,email,min=6,max=32"`
-	Token           string `json:"token" validate:"required,min=1,max=1000"`
-	Password        string `json:"password" validate:"required,min=8,max=30"`
-	ConfirmPassword string `json:"confirmPassword" validate:"required,min=8,max=30,eqfield=Password"`
+	UserID          uuid.UUID `json:"userId"`
+	Token           string    `json:"token" validate:"required,min=1,max=1000"`
+	Password        string    `json:"password" validate:"required,min=8,max=30"`
+	ConfirmPassword string    `json:"confirmPassword" validate:"required,min=8,max=30,eqfield=Password"`
 }
 
 type UserChangePassword struct {
-	Password        string     `json:"currentPassword" validate:"required,min=8,max=30"`
-	NewPassword     string     `json:"newPassword" validate:"required,min=8,max=30"`
-	ConfirmPassword string     `json:"confirmPassword" validate:"required,min=8,max=30,eqfield=NewPassword"`
+	Password        string `json:"currentPassword" validate:"required,min=8,max=30"`
+	NewPassword     string `json:"newPassword" validate:"required,min=8,max=30"`
+	ConfirmPassword string `json:"confirmPassword" validate:"required,min=8,max=30,eqfield=NewPassword"`
 }
 
 func ToResponse(u *User) *UserResponse {

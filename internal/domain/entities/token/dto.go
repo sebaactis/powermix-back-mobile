@@ -1,9 +1,16 @@
 package token
 
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type TokenRequest struct {
-	TokenType string `json:"token_type" validate:"required,max=30"`
-	Token     string `json:"token" validate:"required,max=1000"`
+	TokenType string    `json:"token_type" validate:"required,max=30"`
+	Token     string    `json:"token" validate:"required,max=1000"`
+	UserId    uuid.UUID `json:"user_id" validate:"required,uuid"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 type TokenResponse struct {

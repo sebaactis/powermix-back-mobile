@@ -9,6 +9,7 @@ type Config struct {
 	MercagoPagoToken string
 	CoffejiKey       string
 	CoffejiSecret    string
+	ResendKey        string
 }
 
 func getEnv(key, def string) string {
@@ -26,5 +27,6 @@ func Load() Config {
 		MercagoPagoToken: getEnv("MERCAGO_PAGO_TOKEN", "TEST"),
 		CoffejiKey:       getEnv("COFFEJI_KEY", "TEST"),
 		CoffejiSecret:    getEnv("COFFEJI_SECRET", "TEST"),
+		ResendKey:        getEnv("RESEND_API_KEY", "TEST"),
 	}
 }

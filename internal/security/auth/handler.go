@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
@@ -24,10 +26,11 @@ type HTTPHandler struct {
 	tokens    *token.Service
 	jwt       *jwtx.JWT
 	validator validations.StructValidator
+	mailer    mailer.Mailer
 }
 
-func NewHTTPHandler(users *user.Service, tokens *token.Service, jwt *jwtx.JWT, validator validations.StructValidator) *HTTPHandler {
-	return &HTTPHandler{users: users, tokens: tokens, jwt: jwt, validator: validator}
+func NewHTTPHandler(users *user.Service, tokens *token.Service, jwt *jwtx.JWT, validator validations.StructValidator, mailer mailer.Mailer) *HTTPHandler {
+	return &HTTPHandler{users: users, tokens: tokens, jwt: jwt, validator: validator, mailer: mailer}
 }
 
 func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -48,8 +51,7 @@ func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, "cannot generate tokens", nil)
 		return
 	}
-	h.setTokenCookie(w, "accessToken", tokens.AccessToken, jwtx.TokenTypeAccess)
-	h.setTokenCookie(w, "refreshToken", tokens.RefreshToken, jwtx.TokenTypeRefresh)
+
 	h.respondWithTokens(w, user, tokens)
 }
 
@@ -79,13 +81,13 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
+	accessToken, accessExpiration, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "Error generando el access token", map[string]string{"error": err.Error()})
 		return
 	}
 
-	refreshToken, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeRefresh)
+	refreshToken, refreshExpiration, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeRefresh)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "Error generando el refresh token", map[string]string{"error": err.Error()})
 		return
@@ -94,11 +96,15 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 	h.tokens.Create(r.Context(), &token.TokenRequest{
 		TokenType: string(jwtx.TokenTypeAccess),
 		Token:     accessToken,
+		UserId:    user.ID,
+		ExpiresAt: accessExpiration,
 	})
 
 	h.tokens.Create(r.Context(), &token.TokenRequest{
 		TokenType: string(jwtx.TokenTypeRefresh),
 		Token:     refreshToken,
+		UserId:    user.ID,
+		ExpiresAt: refreshExpiration,
 	})
 
 	utils.WriteSuccess(w, http.StatusOK, map[string]interface{}{
@@ -127,14 +133,13 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generar nuevos tokens
-	newAccessToken, err := h.jwt.Sign(userID, email, jwtx.TokenTypeAccess)
+	newAccessToken, accessExpiration, err := h.jwt.Sign(userID, email, jwtx.TokenTypeAccess)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "No se pudo crear el access token", nil)
 		return
 	}
 
-	newRefreshToken, err := h.jwt.Sign(userID, email, jwtx.TokenTypeRefresh)
+	newRefreshToken, refreshExpiration, err := h.jwt.Sign(userID, email, jwtx.TokenTypeRefresh)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "No se pudo crear el refresh token", nil)
 		return
@@ -145,14 +150,17 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	_, _ = h.tokens.Create(r.Context(), &token.TokenRequest{
 		TokenType: string(jwtx.TokenTypeAccess),
 		Token:     newAccessToken,
+		UserId:    userID,
+		ExpiresAt: accessExpiration,
 	})
 
 	_, _ = h.tokens.Create(r.Context(), &token.TokenRequest{
 		TokenType: string(jwtx.TokenTypeRefresh),
 		Token:     newRefreshToken,
+		UserId:    userID,
+		ExpiresAt: refreshExpiration,
 	})
 
-	// Devolver al frontend
 	utils.WriteSuccess(w, http.StatusOK, map[string]string{
 		"accessToken":  newAccessToken,
 		"refreshToken": newRefreshToken,
@@ -161,32 +169,49 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Request) {
 	var req RecoveryPasswordRequest
+	ctx := r.Context()
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid json", nil)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear el body de la request", nil)
 		return
 	}
 
-	user, err := h.users.GetByEmail(r.Context(), req.Email)
+	genericResponse := func() {
+		utils.WriteSuccess(w, http.StatusOK, map[string]any{
+			"email":   req.Email,
+			"message": "Si cargó un email válido, recibira un link de recuperación",
+		})
+	}
+
+	user, err := h.users.GetByEmail(ctx, req.Email)
 
 	if err != nil {
-		utils.WriteError(w, http.StatusOK, "if the mail exists, a recovery link will be sent you", nil)
+		genericResponse()
 		return
 	}
 
-	token, err := h.generateTokenRecovery(r.Context(), user)
+	token, err := h.generateTokenRecovery(ctx, user)
 
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Token generate failed", nil)
+		utils.WriteError(w, http.StatusBadRequest, "Error al generar el token", nil)
 		return
 	}
 
-	response := &RecoveryPasswordRequestResponse{
-		Email: req.Email,
-		Token: *token,
+	tokenEscaped := url.QueryEscape(*token)
+	emailEscaped := url.QueryEscape(user.Email)
+	resetURL := fmt.Sprintf("com.anonymous.powermix://reset-password?token=%s&email=%s", tokenEscaped, emailEscaped)
+
+	fmt.Println(user.Email, resetURL)
+
+	if err := h.mailer.SendResetPasswordEmail(ctx, user.Email, resetURL); err != nil {
+		genericResponse()
+
+		fmt.Println("HUBO UN ERROR PARA MANDAR EL MAIL")
+		return
 	}
 
-	utils.WriteSuccess(w, http.StatusOK, response)
+	// 5) Respuesta genérica (no devolvemos el token)
+	genericResponse()
 }
 
 func (h *HTTPHandler) UnlockUser(w http.ResponseWriter, r *http.Request) {
@@ -206,16 +231,27 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 	var req user.UserRecoveryPassword
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "invalid request"}`, http.StatusBadRequest)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear el cuerpo de la request", nil)
 		return
 	}
 
-	if _, _, _, err := h.jwt.ParseResetPassword(req.Token); err != nil {
+	userId, _, tokenType, err := h.jwt.ParseResetPassword(req.Token)
+	if err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err.Error(), nil)
 		return
 	}
 
-	userRecovery, err := h.users.UpdatePasswordByRecovery(r.Context(), (req))
+	if tokenType != jwtx.TokenTypeResetPassword {
+		utils.WriteError(w, http.StatusUnauthorized, "Tipo de token inválido", nil)
+		return
+	}
+
+	userRecovery, err := h.users.UpdatePasswordByRecovery(r.Context(), user.UserRecoveryPassword{
+		UserID:          userId,
+		Token:           req.Token,
+		Password:        req.Password,
+		ConfirmPassword: req.ConfirmPassword,
+	})
 
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err.Error(), nil)
@@ -223,7 +259,6 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 	}
 
 	utils.WriteSuccess(w, http.StatusOK, user.ToResponse(userRecovery))
-
 }
 
 // ==================== MÉTODOS PRIVADOS ====================
@@ -263,12 +298,12 @@ func (h *HTTPHandler) authenticateUser(ctx context.Context, req *LoginRequest) (
 }
 
 func (h *HTTPHandler) generateTokens(ctx context.Context, user *user.User) (*TokenPair, error) {
-	accessToken, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
+	accessToken, expirationAccess, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeRefresh)
+	refreshToken, expirationRefresh, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeRefresh)
 	if err != nil {
 		return nil, err
 	}
@@ -276,6 +311,8 @@ func (h *HTTPHandler) generateTokens(ctx context.Context, user *user.User) (*Tok
 	if _, err = h.tokens.Create(ctx, &token.TokenRequest{
 		TokenType: string(jwtx.TokenTypeAccess),
 		Token:     accessToken,
+		UserId:    user.ID,
+		ExpiresAt: expirationAccess,
 	}); err != nil {
 		return nil, err
 	}
@@ -283,6 +320,8 @@ func (h *HTTPHandler) generateTokens(ctx context.Context, user *user.User) (*Tok
 	if _, err = h.tokens.Create(ctx, &token.TokenRequest{
 		TokenType: string(jwtx.TokenTypeRefresh),
 		Token:     refreshToken,
+		UserId:    user.ID,
+		ExpiresAt: expirationRefresh,
 	}); err != nil {
 		return nil, err
 	}
@@ -295,7 +334,7 @@ func (h *HTTPHandler) generateTokens(ctx context.Context, user *user.User) (*Tok
 
 func (h *HTTPHandler) generateTokenRecovery(ctx context.Context, user *user.User) (*string, error) {
 
-	recoveryToken, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeResetPassword)
+	recoveryToken, expirationRecovery, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeResetPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -303,6 +342,8 @@ func (h *HTTPHandler) generateTokenRecovery(ctx context.Context, user *user.User
 	if _, err = h.tokens.Create(ctx, &token.TokenRequest{
 		TokenType: string(jwtx.TokenTypeResetPassword),
 		Token:     recoveryToken,
+		UserId:    user.ID,
+		ExpiresAt: expirationRecovery,
 	}); err != nil {
 		return nil, err
 	}
@@ -328,25 +369,13 @@ func (h *HTTPHandler) handleLoginError(w http.ResponseWriter, ctx context.Contex
 	}
 }
 
-func (h *HTTPHandler) setTokenCookie(w http.ResponseWriter, name string, token string, tokenType jwtx.TokenType) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    token,
-		Path:     "/",
-		MaxAge:   int(h.jwt.GetTTL(tokenType).Seconds() * 2),
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-	})
-}
-
 func (h *HTTPHandler) respondWithTokens(w http.ResponseWriter, user *user.User, tokens *TokenPair) {
 	response := LoginResponse{
-		Email:        user.Email,
-		Name:         user.Name,
+		Email:         user.Email,
+		Name:          user.Name,
 		StampsCounter: user.StampsCounter,
-		Token:        tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
+		Token:         tokens.AccessToken,
+		RefreshToken:  tokens.RefreshToken,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

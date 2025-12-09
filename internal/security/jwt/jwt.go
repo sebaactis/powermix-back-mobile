@@ -67,8 +67,9 @@ func NewJWT() *JWT {
 		ttlRefresh:   time.Duration(ttlMinRefresh) * time.Minute}
 }
 
-func (j *JWT) Sign(userID uuid.UUID, email string, tokenType TokenType) (string, error) {
+func (j *JWT) Sign(userID uuid.UUID, email string, tokenType TokenType) (string, time.Time, error) {
 	now := time.Now()
+	exp := j.getExpiration(tokenType, now)
 
 	claims := Claims{
 		Email:     email,
@@ -76,7 +77,7 @@ func (j *JWT) Sign(userID uuid.UUID, email string, tokenType TokenType) (string,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(j.getExpiration(tokenType, now)),
+			ExpiresAt: jwt.NewNumericDate(exp),
 		},
 	}
 
@@ -87,7 +88,12 @@ func (j *JWT) Sign(userID uuid.UUID, email string, tokenType TokenType) (string,
 		secret = j.reset_secret
 	}
 
-	return token.SignedString(secret)
+	signed, err := token.SignedString(secret)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	return signed, exp, nil
 }
 
 func (j *JWT) Parse(tokenIn string, tokenType TokenType) (uuid.UUID, string, TokenType, error) {
@@ -155,4 +161,3 @@ func (j *JWT) GetTTL(tokenType TokenType) time.Duration {
 
 	return ttl
 }
-

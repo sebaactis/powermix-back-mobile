@@ -11,6 +11,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/coffeeji"
+	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/mercadopago"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
@@ -74,7 +75,8 @@ func main() {
 	proofHandler := proof.NewHTTPHandler(proofService)
 
 	// Auth DI
-	authHandler := auth.NewHTTPHandler(userService, tokenService, jwt, validator)
+	mailerClient := mailer.NewResendMailer(cfg.ResendKey, "safeimportsarg@gmail.com", "Powermix")
+	authHandler := auth.NewHTTPHandler(userService, tokenService, jwt, validator, mailerClient)
 
 	// Middlewares
 	authMiddleware := middlewares.NewAuthMiddleware(jwt, userService, tokenService)

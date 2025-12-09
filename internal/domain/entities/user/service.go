@@ -91,7 +91,7 @@ func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecovery
 		return nil, &validations.ValidationError{Fields: fields}
 	}
 
-	user, err := s.repository.FindByEmail(ctx, req.Email)
+	user, err := s.repository.FindByID(ctx, req.UserID)
 
 	if err != nil {
 		return nil, err

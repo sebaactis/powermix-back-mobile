@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
+	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 )
 
@@ -25,6 +27,8 @@ func (s *Service) Create(ctx context.Context, tokenRequest *TokenRequest) (*Toke
 	tokenCreate := &Token{
 		TokenType: tokenRequest.TokenType,
 		Token:     tokenRequest.Token,
+		UserID:    tokenRequest.UserId,
+		ExpiresAt: tokenRequest.ExpiresAt,
 	}
 
 	token, err := s.repository.Create(ctx, tokenCreate)
@@ -34,6 +38,39 @@ func (s *Service) Create(ctx context.Context, tokenRequest *TokenRequest) (*Toke
 	}
 
 	return token, nil
+}
+
+func (s *Service) CreateResetPasswordToken(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) (*Token, error) {
+	tokenCreate := &Token{
+		UserID:    userID,
+		TokenType: string(jwtx.TokenTypeResetPassword),
+		Token:     rawToken,
+		ExpiresAt: expiresAt,
+	}
+
+	token, err := s.repository.Create(ctx, tokenCreate)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return token, nil
+}
+
+func (s *Service) ValidateAndRevokeResetPasswordToken(ctx context.Context, rawToken string) (*Token, error) {
+	now := time.Now()
+
+	t, err := s.repository.GetValidResetPasswordToken(ctx, rawToken, now)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repository.RevokeToken(ctx, rawToken); err != nil {
+		return nil, err
+	}
+
+	return t, nil
 }
 
 func (s *Service) GetAll(ctx context.Context) ([]*Token, error) {
@@ -46,15 +83,19 @@ func (s *Service) GetAll(ctx context.Context) ([]*Token, error) {
 }
 
 func (s *Service) RevokeToken(ctx context.Context, token string) error {
-
 	tokenCheck, err := s.repository.GetByToken(ctx, token)
-
 	if err != nil {
 		return err
 	}
 
-	if tokenCheck.Is_Revoked && tokenCheck.Revoked_Date.Before(time.Now()) {
-		return errors.New("el token no es válido o ya no está vigente")
+	now := time.Now()
+
+	if tokenCheck.Is_Revoked {
+		return errors.New("el token no es válido o ya fue utilizado")
+	}
+
+	if !tokenCheck.ExpiresAt.IsZero() && tokenCheck.ExpiresAt.Before(now) {
+		return errors.New("el token ha expirado")
 	}
 
 	return s.repository.RevokeToken(ctx, token)

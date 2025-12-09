@@ -37,7 +37,7 @@ func Router(d Deps) *chi.Mux {
 		r.Post("/login-google", d.AuthHandler.OAuthGoogle)
 
 		// User password
-		r.Get("/recoveryPassword", d.AuthHandler.RecoveryPasswordRequest)
+		r.Post("/recoveryPassword", d.AuthHandler.RecoveryPasswordRequest)
 		r.Post("/updatePasswordRecovery", d.AuthHandler.UpdatePasswordByRecovery)
 
 		// Token
