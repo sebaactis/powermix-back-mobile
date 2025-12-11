@@ -199,7 +199,7 @@ func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Req
 
 	tokenEscaped := url.QueryEscape(*token)
 	emailEscaped := url.QueryEscape(user.Email)
-	resetURL := fmt.Sprintf("com.anonymous.powermix://reset-password?token=%s&email=%s", tokenEscaped, emailEscaped)
+	resetURL := fmt.Sprintf("https://powermixstation.com.ar/reset-password?token=%s&email=%s", tokenEscaped, emailEscaped)
 
 	fmt.Println(user.Email, resetURL)
 
@@ -210,7 +210,6 @@ func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// 5) Respuesta genérica (no devolvemos el token)
 	genericResponse()
 }
 
@@ -234,6 +233,8 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear el cuerpo de la request", nil)
 		return
 	}
+
+	
 
 	userId, _, tokenType, err := h.jwt.ParseResetPassword(req.Token)
 	if err != nil {

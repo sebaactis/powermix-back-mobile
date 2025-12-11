@@ -130,7 +130,6 @@ func (j *JWT) parseWithSecret(tokenIn string, secret []byte, expectedType TokenT
 		return uuid.UUID{}, "", "", errors.New("tipo de token invalido")
 	}
 
-	// Pendiente validar si esta revocado
 	if claims.ExpiresAt != nil && time.Now().After(claims.ExpiresAt.Time) {
 		return uuid.UUID{}, "", "", errors.New("token expirado")
 	}

@@ -109,7 +109,9 @@ func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecovery
 		return nil, err
 	}
 
-	if err = s.tokenService.RevokeToken(ctx, req.Token); err != nil {
+	_, err = s.tokenService.ValidateAndRevokeResetPasswordToken(ctx, req.Token)
+
+	if err != nil {
 		return nil, err
 	}
 
