@@ -2,39 +2,51 @@ package voucher
 
 import (
 	"context"
-	"time"
+	"fmt"
+	"os"
 
-	"github.com/sebaactis/powermix-back-mobile/internal/utils"
+	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 )
 
 type Service struct {
 	repo *Repository
+	userRepository *user.Repository
+	mailer mailer.Mailer
 }
 
-func NewService(repo *Repository) *Service {
+func NewService(repo *Repository, userRepository *user.Repository, mailer mailer.Mailer) *Service {
 	return &Service{
 		repo: repo,
+		userRepository: userRepository,
+		mailer: mailer,
 	}
 }
 
-func (s *Service) Create(ctx context.Context, voucherRequest *VoucherRequest) (*VoucherResponse, error) {
+func (s *Service) AssignNextVoucher(ctx context.Context, voucherRequest *VoucherRequest) (*VoucherResponse, error) {
 
-	newVoucher := &Voucher{
-		UserID:         voucherRequest.UserID,
-		QRCode:         "QRCODE_TO_DO",
-		GenerationDate: utils.FormattedTime{Time: time.Now().Truncate(time.Second)},
-	}
+	voucherEntity, err := s.repo.AssignNextVoucher(ctx, voucherRequest)
 
-	err := s.repo.Create(ctx, newVoucher)
 	if err != nil {
 		return nil, err
 	}
 
+	baseURL := os.Getenv("VOUCHER_BUCKER_URL")
+	imageURL := fmt.Sprintf("%s/%s", baseURL, voucherEntity.StoragePath)
+
 	voucherResponse := &VoucherResponse{
-		UserID:         newVoucher.UserID,
-		QRCode:         newVoucher.QRCode,
-		GenerationDate: newVoucher.GenerationDate.Time,
+		UserID: voucherEntity.UserID,
+		QRCode: voucherEntity.QRCode,
+		ImageURL: imageURL,
 	}
+
+	user, err := s.userRepository.FindByID(ctx, voucherEntity.UserID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	s.mailer.SendVoucherEmail(ctx, user.Email, imageURL)
 
 	return voucherResponse, nil
 }

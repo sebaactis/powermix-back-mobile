@@ -1,8 +1,6 @@
 package voucher
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 )
 
@@ -11,7 +9,7 @@ type VoucherRequest struct {
 }
 
 type VoucherResponse struct {
-	UserID         uuid.UUID
-	QRCode         string
-	GenerationDate time.Time
+	UserID   uuid.UUID
+	QRCode   string
+	ImageURL string
 }

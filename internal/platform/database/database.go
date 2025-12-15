@@ -15,9 +15,12 @@ import (
 func Open(cfg config.Config) (*gorm.DB, error) {
 	switch cfg.Driver {
 	case "postgres":
-		return gorm.Open(postgres.Open(cfg.DSN), &gorm.Config{
-			TranslateError: true,
-		})
+		return gorm.Open(postgres.New(postgres.Config{
+            DSN:                  cfg.DSN,
+            PreferSimpleProtocol: true,
+        }), &gorm.Config{
+            TranslateError: true,
+        })
 	default:
 		return nil, fmt.Errorf("driver not supported: %s", cfg.Driver)
 	}

@@ -48,3 +48,42 @@ func (m *ResendMailer) SendResetPasswordEmail(ctx context.Context, toEmail, rese
 	_, err := m.client.Emails.Send(params)
 	return err
 }
+
+func (m *ResendMailer) SendVoucherEmail(ctx context.Context, toEmail, voucherUrl string) error {
+    html := fmt.Sprintf(`
+        <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+            <h2>Ganaste un voucher - %s</h2>
+            <p>Por cargar tus comprobantes ganaste un voucher para canjear por un pedido gratis.</p>
+
+            <!-- Imagen clickeable -->
+            <div style="margin: 16px 0; text-align: center;">
+                <a href="%s" target="_blank" rel="noopener noreferrer">
+                    <img src="%s" alt="Tu voucher"
+                        style="max-width: 260px; height: auto; display: block; margin: 0 auto;" />
+                </a>
+            </div>
+
+            <!-- Link separado para abrir en grande -->
+            <p style="text-align: center; margin-top: 8px;">
+                <a href="%s" target="_blank" rel="noopener noreferrer"
+                    style="display: inline-block; padding: 8px 14px;
+                           background: #8B003A; color: #ffffff; text-decoration: none;
+                           border-radius: 6px; font-weight: 600; font-size: 14px;">
+                    Ver voucher en pantalla completa
+                </a>
+            </p>
+        </div>
+    `, m.appName, voucherUrl, voucherUrl, voucherUrl)
+
+    params := &resend.SendEmailRequest{
+        From:    "no-reply@powermixstation.com.ar",
+        To:      []string{toEmail},
+        Subject: "¡Ganaste un voucher!",
+        Html:    html,
+    }
+
+    _, err := m.client.Emails.Send(params)
+    return err
+}
+
+

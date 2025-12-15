@@ -23,7 +23,7 @@ func Load() Config {
 	return Config{
 		HTTPAddr:         getEnv("HTTP_ADDR", ":8080"),
 		Driver:           getEnv("DB_DRIVER", "postgres"),
-		DSN:              getEnv("DSN", "host=localhost user=postgres password=postgres dbname=powermixdb port=5432 sslmode=disable"),
+		DSN:              getEnv("DSN", "postgresql://postgres:Powermix0403@@db.kzlzslphwkmypcblgntn.supabase.co:5432/postgres"),
 		MercagoPagoToken: getEnv("MERCAGO_PAGO_TOKEN", "TEST"),
 		CoffejiKey:       getEnv("COFFEJI_KEY", "TEST"),
 		CoffejiSecret:    getEnv("COFFEJI_SECRET", "TEST"),

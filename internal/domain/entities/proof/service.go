@@ -89,7 +89,8 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 
 	if quantityStamps == 10 {
 
-		_, err = s.voucherService.Create(ctx, &voucher.VoucherRequest{UserID: proofResult.UserID})
+		_, err = s.voucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{
+			UserID: proofResult.UserID})
 
 		if err != nil {
 			return nil, err
@@ -188,7 +189,8 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 	}
 
 	if quantityStamps == 10 {
-		_, err = s.voucherService.Create(ctx, &voucher.VoucherRequest{UserID: proofResult.UserID})
+		_, err = s.voucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{UserID: proofResult.UserID})
+		
 		if err != nil {
 			return nil, err
 		}

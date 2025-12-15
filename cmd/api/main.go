@@ -48,6 +48,9 @@ func main() {
 	validator := validations.NewValidator()
 	rateLimiter := middlewares.NewRateLimiter(10, 2*time.Minute)
 
+	// Mailer
+	mailerClient := mailer.NewResendMailer(cfg.ResendKey, "safeimportsarg@gmail.com", "Powermix")
+
 	// MP
 	mpClient := mercadopago.NewClient(cfg.MercagoPagoToken)
 
@@ -66,7 +69,7 @@ func main() {
 
 	// Voucher DI
 	voucherRepository := voucher.NewRepository(db)
-	voucherService := voucher.NewService(voucherRepository)
+	voucherService := voucher.NewService(voucherRepository, userRepository, mailerClient)
 	voucherHandler := voucher.NewHTTPHandler(voucherService)
 
 	// Proof DI
@@ -75,7 +78,6 @@ func main() {
 	proofHandler := proof.NewHTTPHandler(proofService)
 
 	// Auth DI
-	mailerClient := mailer.NewResendMailer(cfg.ResendKey, "safeimportsarg@gmail.com", "Powermix")
 	authHandler := auth.NewHTTPHandler(userService, tokenService, jwt, validator, mailerClient)
 
 	// Middlewares
@@ -117,8 +119,8 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Shutdown error: %v", err)
+		log.Printf("Error al apagar el servidor:: %v", err)
 	}
 
-	log.Println("Apago limpio")
+	log.Println("Apagado limpio")
 }
