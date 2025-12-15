@@ -29,8 +29,16 @@ type HTTPHandler struct {
 	mailer    mailer.Mailer
 }
 
-func NewHTTPHandler(users *user.Service, tokens *token.Service, jwt *jwtx.JWT, validator validations.StructValidator, mailer mailer.Mailer) *HTTPHandler {
-	return &HTTPHandler{users: users, tokens: tokens, jwt: jwt, validator: validator, mailer: mailer}
+func NewHTTPHandler(users *user.Service,
+	tokens *token.Service,
+	jwt *jwtx.JWT,
+	validator validations.StructValidator,
+	mailer mailer.Mailer) *HTTPHandler {
+	return &HTTPHandler{users: users,
+		tokens:    tokens,
+		jwt:       jwt,
+		validator: validator,
+		mailer:    mailer}
 }
 
 func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -233,8 +241,6 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear el cuerpo de la request", nil)
 		return
 	}
-
-	
 
 	userId, _, tokenType, err := h.jwt.ParseResetPassword(req.Token)
 	if err != nil {

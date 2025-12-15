@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/security/oauth"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
@@ -20,11 +21,12 @@ type Service struct {
 	repository   *Repository
 	tokenService *token.Service
 	validator    validations.StructValidator
+	mailer       mailer.Mailer
 	db           *gorm.DB
 }
 
-func NewService(repository *Repository, tokenService *token.Service, v validations.StructValidator) *Service {
-	return &Service{repository: repository, tokenService: tokenService, db: repository.db, validator: v}
+func NewService(repository *Repository, tokenService *token.Service, v validations.StructValidator, mailer mailer.Mailer) *Service {
+	return &Service{repository: repository, tokenService: tokenService, db: repository.db, validator: v, mailer: mailer}
 }
 
 func (s *Service) Create(ctx context.Context, user *UserCreate) (*User, error) {
@@ -164,4 +166,26 @@ func (s *Service) Update(ctx context.Context, userId uuid.UUID, req UserUpdate) 
 	}
 
 	return s.repository.Update(ctx, userId, updates)
+}
+
+func (s *Service) SendEmailContact(ctx context.Context, req mailer.ContactRequest) (*mailer.ContactResponse, error) {
+
+	if fields, ok := s.validator.ValidateStruct(req); !ok {
+		return nil, &validations.ValidationError{Fields: fields}
+	}
+
+	if err := s.mailer.SendEmailContact(ctx, &req); err != nil {
+		return nil, err
+	}
+
+	newContactResponse := mailer.ContactResponse{
+		Name:       req.Name,
+		Email:      req.Email,
+		Category:   req.Category,
+		Message:    req.Message,
+		ApiMessage: "Consulta enviada correctamente!",
+	}
+
+	return &newContactResponse, nil
+
 }

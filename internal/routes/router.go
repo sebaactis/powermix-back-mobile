@@ -51,6 +51,7 @@ func Router(d Deps) *chi.Mux {
 			pr.Get("/user/me", d.UserHandler.Me)
 			pr.Put("/user/update", d.UserHandler.Update)
 			pr.Put("/user/change-password", d.UserHandler.UpdatePassword)
+			pr.Post("/user/contact", d.UserHandler.SendEmailContact)
 
 			// Proof
 			pr.Get("/proofs/me", d.ProofHandler.GetAllByUserId)

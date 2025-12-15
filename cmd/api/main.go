@@ -64,7 +64,7 @@ func main() {
 
 	// Users DI
 	userRepository := user.NewRepository(db)
-	userService := user.NewService(userRepository, tokenService, validator)
+	userService := user.NewService(userRepository, tokenService, validator, mailerClient)
 	userHandler := user.NewHTTPHandler(userService, jwt)
 
 	// Voucher DI

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
 	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
@@ -96,7 +97,7 @@ func (h *HTTPHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var req UserUpdate
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la respuesta, por favor revise los datos enviados", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la request, por favor revise los datos enviados", map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -132,7 +133,7 @@ func (h *HTTPHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 	var req UserChangePassword
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la respuesta, por favor revise los datos enviados", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la request, por favor revise los datos enviados", map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -146,6 +147,31 @@ func (h *HTTPHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 
 	utils.WriteSuccess(w, http.StatusOK, ToResponse(userUpdate))
 
+}
+
+func (h *HTTPHandler) SendEmailContact(w http.ResponseWriter, r *http.Request) {
+	var req *mailer.ContactRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la request, por favor revise los datos enviados", map[string]string{"error": err.Error()})
+		return
+	}
+
+	_, err := h.getUserIDFromRequest(r);
+
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "Token invalido", map[string]string{"error": err.Error()})
+		return
+	}
+
+	emailSend, err := h.service.SendEmailContact(r.Context(), *req)
+
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "Error al intentar enviar su consulta", err)
+		return
+	}
+
+	utils.WriteSuccess(w, http.StatusOK, emailSend)
 }
 
 // Helper privado
