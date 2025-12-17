@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 )
 
@@ -34,4 +35,26 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteSuccess(w, http.StatusCreated, v)
+}
+
+func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	userId, ok := middlewares.UserIDFromContext(ctx)
+
+	if !ok {
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+		return
+	}
+
+	vouchers, err := h.service.GetAllByUserId(ctx, userId)
+
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "Error al recuperar los vouchers", err)
+		return
+	}
+
+	utils.WriteSuccess(w, http.StatusOK, vouchers)
+
 }

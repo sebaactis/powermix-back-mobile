@@ -1,6 +1,7 @@
 package coffeeji
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -88,4 +89,65 @@ func (c *Client) GetGoodsNameByOrderNo(ctx context.Context, orderNo string) (str
 	}
 
 	return resp.Data.Records[0].GoodsName, nil
+}
+
+func (c *Client) ValidateVoucherCode(ctx context.Context, voucherCode string) (bool, error) {
+	u, err := url.Parse(c.baseURL + "/coffee/newThird/order/getOrderInfo")
+
+	if err != nil {
+		return false, err
+	}
+
+	payload := map[string]string{
+		"code": voucherCode,
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return false, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), bytes.NewReader(jsonPayload))
+
+	if err != nil {
+		return false, err
+	}
+
+	timestamp, keyMd5 := buildAuthHeaders(c.key, c.secret)
+	req.Header.Set("key", c.key)
+	req.Header.Set("key-md5", keyMd5)
+	req.Header.Set("timestamp", timestamp)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+
+	if err != nil {
+		return false, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return false, fmt.Errorf("coffeeji http %d: %s", resp.StatusCode, string(body))
+	}
+
+	var parsed VoucherResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return false, err
+	}
+
+	data := bytes.TrimSpace(parsed.Data)
+	isEmpty := len(data) == 0 || bytes.Equal(data, []byte("null")) || bytes.Equal(data, []byte("{}"))
+
+	used := !isEmpty
+
+	return used, nil
+
 }

@@ -61,6 +61,9 @@ func Router(d Deps) *chi.Mux {
 			pr.Post("/proof", d.ProofHandler.Create)
 			pr.Post("/proof/others", d.ProofHandler.CreateFromOthers)
 
+			// Voucher
+			pr.Get("/voucher/me", d.VoucherHandler.GetAllByUserId)
+
 		})
 	})
 
