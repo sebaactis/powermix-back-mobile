@@ -190,7 +190,7 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 
 	if quantityStamps == 10 {
 		_, err = s.voucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{UserID: proofResult.UserID})
-		
+
 		if err != nil {
 			return nil, err
 		}

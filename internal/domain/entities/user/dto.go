@@ -8,7 +8,7 @@ import (
 
 type UserCreate struct {
 	Name            string `json:"name"  validate:"required,min=6,max=30"`
-	Email           string `json:"email" validate:"required,min=5,max=30,email"`
+	Email           string `json:"email" validate:"required,min=8,max=30,email"`
 	Password        string `json:"password" validate:"required,min=8,max=30"`
 	ConfirmPassword string `json:"confirmPassword" validate:"required,min=8,max=30,eqfield=Password"`
 }
