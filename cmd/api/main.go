@@ -59,7 +59,7 @@ func main() {
 
 	// Token DI
 	tokenRepository := token.NewRepository(db)
-	tokenService := token.NewService(tokenRepository, validator)
+	tokenService := token.NewService(tokenRepository, validator, cfg.HashToken)
 	tokenHandler := token.NewHTTPHandler(tokenService)
 
 	// Users DI

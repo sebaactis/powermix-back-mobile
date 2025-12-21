@@ -101,28 +101,20 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.tokens.Create(r.Context(), &token.TokenRequest{
-		TokenType: string(jwtx.TokenTypeAccess),
-		Token:     accessToken,
-		UserId:    user.ID,
-		ExpiresAt: accessExpiration,
-	})
-
-	h.tokens.Create(r.Context(), &token.TokenRequest{
+	if _, err := h.tokens.Create(r.Context(), &token.TokenRequest{
 		TokenType: string(jwtx.TokenTypeRefresh),
 		Token:     refreshToken,
 		UserId:    user.ID,
 		ExpiresAt: refreshExpiration,
-	})
-
-	utils.WriteSuccess(w, http.StatusOK, map[string]interface{}{
-		"user": map[string]interface{}{
-			"id":    user.ID,
-			"email": user.Email,
-			"name":  user.Name,
-		},
-		"accessToken":  accessToken,
-		"refreshToken": refreshToken,
+	}); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "No se pudo guardar el refresh token", nil)
+		return
+	}
+	utils.WriteSuccess(w, http.StatusOK, map[string]any{
+		"accessToken":      accessToken,
+		"refreshToken":     refreshToken,
+		"accessExpiresAt":  accessExpiration,
+		"refreshExpiresAt": refreshExpiration,
 	})
 }
 
@@ -141,39 +133,63 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newAccessToken, accessExpiration, err := h.jwt.Sign(userID, email, jwtx.TokenTypeAccess)
+	ctx := r.Context()
+	now := time.Now()
+
+	var (
+		newAccessToken  string
+		newRefreshToken string
+		accessExp       time.Time
+		refreshExp      time.Time
+	)
+
+	err = h.tokens.Transaction(ctx, func(tokensTx *token.Service) error {
+
+		revoked, err := tokensTx.RevokeRefreshIfValid(ctx, refreshToken, now)
+		if err != nil {
+			return err
+		}
+		if !revoked {
+
+			return errors.New("refresh token invalido o usado")
+		}
+
+		newAccessToken, accessExp, err = h.jwt.Sign(userID, email, jwtx.TokenTypeAccess)
+		if err != nil {
+			return err
+		}
+
+		newRefreshToken, refreshExp, err = h.jwt.Sign(userID, email, jwtx.TokenTypeRefresh)
+		if err != nil {
+			return err
+		}
+
+		_, err = tokensTx.Create(ctx, &token.TokenRequest{
+			TokenType: string(jwtx.TokenTypeRefresh),
+			Token:     newRefreshToken,
+			UserId:    userID,
+			ExpiresAt: refreshExp,
+		})
+		return err
+	})
+
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "No se pudo crear el access token", nil)
+		if err.Error() == "refresh_invalid_or_used" {
+			utils.WriteError(w, http.StatusUnauthorized, "Refresh token invalido o ya utilizado", nil)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, "Error al refrescar token", nil)
 		return
 	}
 
-	newRefreshToken, refreshExpiration, err := h.jwt.Sign(userID, email, jwtx.TokenTypeRefresh)
-	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "No se pudo crear el refresh token", nil)
-		return
-	}
-
-	_ = h.tokens.RevokeToken(r.Context(), refreshToken)
-
-	_, _ = h.tokens.Create(r.Context(), &token.TokenRequest{
-		TokenType: string(jwtx.TokenTypeAccess),
-		Token:     newAccessToken,
-		UserId:    userID,
-		ExpiresAt: accessExpiration,
-	})
-
-	_, _ = h.tokens.Create(r.Context(), &token.TokenRequest{
-		TokenType: string(jwtx.TokenTypeRefresh),
-		Token:     newRefreshToken,
-		UserId:    userID,
-		ExpiresAt: refreshExpiration,
-	})
-
-	utils.WriteSuccess(w, http.StatusOK, map[string]string{
-		"accessToken":  newAccessToken,
-		"refreshToken": newRefreshToken,
+	utils.WriteSuccess(w, http.StatusOK, map[string]any{
+		"accessToken":      newAccessToken,
+		"refreshToken":     newRefreshToken,
+		"accessExpiresAt":  accessExp,
+		"refreshExpiresAt": refreshExp,
 	})
 }
+
 
 func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Request) {
 	var req RecoveryPasswordRequest
@@ -305,22 +321,13 @@ func (h *HTTPHandler) authenticateUser(ctx context.Context, req *LoginRequest) (
 }
 
 func (h *HTTPHandler) generateTokens(ctx context.Context, user *user.User) (*TokenPair, error) {
-	accessToken, expirationAccess, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
+	accessToken, _, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
 	if err != nil {
 		return nil, err
 	}
 
 	refreshToken, expirationRefresh, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeRefresh)
 	if err != nil {
-		return nil, err
-	}
-
-	if _, err = h.tokens.Create(ctx, &token.TokenRequest{
-		TokenType: string(jwtx.TokenTypeAccess),
-		Token:     accessToken,
-		UserId:    user.ID,
-		ExpiresAt: expirationAccess,
-	}); err != nil {
 		return nil, err
 	}
 

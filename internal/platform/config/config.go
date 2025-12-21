@@ -10,6 +10,7 @@ type Config struct {
 	CoffejiKey       string
 	CoffejiSecret    string
 	ResendKey        string
+	HashToken        string
 }
 
 func getEnv(key, def string) string {
@@ -28,5 +29,6 @@ func Load() Config {
 		CoffejiKey:       getEnv("COFFEJI_KEY", "TEST"),
 		CoffejiSecret:    getEnv("COFFEJI_SECRET", "TEST"),
 		ResendKey:        getEnv("RESEND_API_KEY", "TEST"),
+		HashToken:        getEnv("JWT_REFRESH_HASH", "TEST"),
 	}
 }

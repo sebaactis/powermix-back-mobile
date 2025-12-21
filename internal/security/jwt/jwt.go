@@ -134,7 +134,13 @@ func (j *JWT) parseWithSecret(tokenIn string, secret []byte, expectedType TokenT
 		return uuid.UUID{}, "", "", errors.New("token expirado")
 	}
 
-	return uuid.MustParse(claims.Subject), claims.Email, claims.TokenType, nil
+	uid, err := uuid.Parse(claims.Subject)
+
+	if err != nil {
+		return uuid.UUID{}, "", "", errors.New("subject inválido")
+	}
+
+	return uid, claims.Email, claims.TokenType, nil
 }
 
 func (j *JWT) getExpiration(tokenType TokenType, now time.Time) time.Time {

@@ -13,10 +13,15 @@ import (
 type Service struct {
 	repository *Repository
 	validator  validations.StructValidator
+	pepper     []byte
 }
 
-func NewService(repository *Repository, v validations.StructValidator) *Service {
-	return &Service{repository: repository, validator: v}
+func NewService(repository *Repository, v validations.StructValidator, tokenHashSecret string) *Service {
+	return &Service{
+		repository: repository,
+		validator:  v,
+		pepper:     []byte(tokenHashSecret),
+	}
 }
 
 func (s *Service) Create(ctx context.Context, tokenRequest *TokenRequest) (*Token, error) {
@@ -24,9 +29,11 @@ func (s *Service) Create(ctx context.Context, tokenRequest *TokenRequest) (*Toke
 		return nil, &validations.ValidationError{Fields: fields}
 	}
 
+	tokenHash := HashToken(s.pepper, tokenRequest.Token)
+
 	tokenCreate := &Token{
 		TokenType: tokenRequest.TokenType,
-		Token:     tokenRequest.Token,
+		TokenHash: tokenHash,
 		UserID:    tokenRequest.UserId,
 		ExpiresAt: tokenRequest.ExpiresAt,
 	}
@@ -41,10 +48,12 @@ func (s *Service) Create(ctx context.Context, tokenRequest *TokenRequest) (*Toke
 }
 
 func (s *Service) CreateResetPasswordToken(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) (*Token, error) {
+	tokenHash := HashToken(s.pepper, rawToken)
+
 	tokenCreate := &Token{
 		UserID:    userID,
 		TokenType: string(jwtx.TokenTypeResetPassword),
-		Token:     rawToken,
+		TokenHash: tokenHash,
 		ExpiresAt: expiresAt,
 	}
 
@@ -66,11 +75,17 @@ func (s *Service) ValidateAndRevokeResetPasswordToken(ctx context.Context, rawTo
 		return nil, err
 	}
 
-	if err := s.repository.RevokeToken(ctx, rawToken); err != nil {
+	hashToken := HashToken(s.pepper, rawToken)
+
+	if err := s.repository.RevokeToken(ctx, hashToken); err != nil {
 		return nil, err
 	}
 
 	return t, nil
+}
+
+func (s *Service) ValidateRefreshToken(ctx context.Context, rawToken string) (*Token, error) {
+	return s.repository.GetValidRefreshToken(ctx, rawToken, time.Now())
 }
 
 func (s *Service) GetAll(ctx context.Context) ([]*Token, error) {
@@ -83,7 +98,8 @@ func (s *Service) GetAll(ctx context.Context) ([]*Token, error) {
 }
 
 func (s *Service) RevokeToken(ctx context.Context, token string) error {
-	tokenCheck, err := s.repository.GetByToken(ctx, token)
+	hashToken := HashToken(s.pepper, token)
+	tokenCheck, err := s.repository.GetByToken(ctx, hashToken)
 	if err != nil {
 		return err
 	}
@@ -98,5 +114,24 @@ func (s *Service) RevokeToken(ctx context.Context, token string) error {
 		return errors.New("el token ha expirado")
 	}
 
-	return s.repository.RevokeToken(ctx, token)
+	return s.repository.RevokeToken(ctx, hashToken)
+}
+
+func (s *Service) RevokeRefreshIfValid(ctx context.Context, tokenIn string, now time.Time) (bool, error) {
+	hashToken := HashToken(s.pepper, tokenIn)
+	return s.repository.RevokeRefreshIfValid(ctx, hashToken, now)
+}
+
+func (s *Service) WithRepo(repo *Repository) *Service {
+	return &Service{
+		repository: repo,
+		validator:  s.validator,
+		pepper:     s.pepper,
+	}
+}
+
+func (s *Service) Transaction(ctx context.Context, fn func(sTx *Service) error) error {
+	return s.repository.Transaction(ctx, func(rTx *Repository) error {
+		return fn(s.WithRepo(rTx))
+	})
 }
