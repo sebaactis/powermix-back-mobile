@@ -17,6 +17,7 @@ import (
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/voucher"
+	"github.com/sebaactis/powermix-back-mobile/internal/jobs"
 	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
 	"github.com/sebaactis/powermix-back-mobile/internal/platform/config"
 	"github.com/sebaactis/powermix-back-mobile/internal/platform/database"
@@ -69,7 +70,7 @@ func main() {
 
 	// Voucher DI
 	voucherRepository := voucher.NewRepository(db)
-	voucherService := voucher.NewService(voucherRepository, userRepository, mailerClient)
+	voucherService := voucher.NewService(voucherRepository, userRepository, mailerClient, coffejiClient)
 	voucherHandler := voucher.NewHTTPHandler(voucherService)
 
 	// Proof DI
@@ -93,6 +94,12 @@ func main() {
 		RateLimiter:    rateLimiter,
 		Validator:      validator,
 	})
+
+	voucherCron := jobs.NewVoucherCron(voucherService, "@every 2m", 100, 30*time.Second)
+	if err := voucherCron.Start(); err != nil {
+		log.Fatalf("cannot start voucher cron: %v", err)
+	}
+	defer voucherCron.Stop()
 
 	srv := &http.Server{
 		Addr:         cfg.HTTPAddr,

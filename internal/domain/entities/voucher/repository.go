@@ -73,3 +73,31 @@ func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*V
 
 	return result, nil
 }
+
+func (r *Repository) ListAssignedActive(ctx context.Context, limit int) ([]*Voucher, error) {
+	var v []*Voucher
+	err := r.db.WithContext(ctx).
+		Where("is_assigned = ?", true).
+		Where("status = ?", VoucherStatusActive).
+		Limit(limit).
+		Find(&v).Error
+	return v, err
+}
+
+func (r *Repository) MarkUsed(ctx context.Context, id uuid.UUID, now time.Time) error {
+	updates := map[string]any{
+		"status":  VoucherStatusUsed,
+		"used_at": &now,
+	}
+	return r.db.WithContext(ctx).
+		Model(&Voucher{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
+func (r *Repository) TouchChecked(ctx context.Context, id uuid.UUID, now time.Time) error {
+	return r.db.WithContext(ctx).
+		Model(&Voucher{}).
+		Where("id = ?", id).
+		Update("last_checked_at", &now).Error
+}
