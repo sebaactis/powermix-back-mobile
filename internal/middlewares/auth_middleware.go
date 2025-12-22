@@ -3,17 +3,19 @@ package middlewares
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
-	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
-	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 )
 
 type ctxKey string
 
-const ctxUserID ctxKey = "jwtx.user_id"
+const (
+	ctxUserID    ctxKey = "jwtx.user_id"
+	ctxUserEmail ctxKey = "jwtx.email"
+)
 
 func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	v := ctx.Value(ctxUserID)
@@ -25,14 +27,22 @@ func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	return id, ok
 }
 
-type AuthMiddleware struct {
-	jwt          *jwtx.JWT
-	userService  *user.Service
-	tokenService *token.Service
+func UserEmailFromContext(ctx context.Context) (string, bool) {
+	v := ctx.Value(ctxUserEmail)
+	if v == nil {
+		return "", false
+	}
+
+	email, ok := v.(string)
+	return email, ok
 }
 
-func NewAuthMiddleware(jwt *jwtx.JWT, userService *user.Service, tokenService *token.Service) *AuthMiddleware {
-	return &AuthMiddleware{jwt: jwt, userService: userService, tokenService: tokenService}
+type AuthMiddleware struct {
+	jwt *jwtx.JWT
+}
+
+func NewAuthMiddleware(jwt *jwtx.JWT) *AuthMiddleware {
+	return &AuthMiddleware{jwt: jwt}
 }
 
 func (a *AuthMiddleware) RequireAuth() func(http.Handler) http.Handler {
@@ -46,21 +56,26 @@ func (a *AuthMiddleware) RequireAuth() func(http.Handler) http.Handler {
 			}
 
 			const prefix = "Bearer "
-			if len(authHeader) <= len(prefix) || authHeader[:len(prefix)] != prefix {
+			if !strings.HasPrefix(authHeader, prefix) {
 				utils.WriteError(w, http.StatusUnauthorized, "El authorization header tiene un formato invalido", nil)
 				return
 			}
 
-			accessToken := authHeader[len(prefix):]
+			accessToken := strings.TrimPrefix(authHeader, prefix)
+			if accessToken == "" {
+				utils.WriteError(w, http.StatusUnauthorized, "Token vacio", nil)
+				return
+			}
 
-			userID, _, tokenType, err := a.jwt.Parse(accessToken, jwtx.TokenTypeAccess)
+			userID, email, tokenType, err := a.jwt.Parse(accessToken, jwtx.TokenTypeAccess)
 			if err != nil || tokenType != jwtx.TokenTypeAccess {
-				_ = a.tokenService.RevokeToken(r.Context(), accessToken)
 				utils.WriteError(w, http.StatusUnauthorized, "Token invalido o expirado", nil)
 				return
 			}
 
 			ctx := context.WithValue(r.Context(), ctxUserID, userID)
+			ctx = context.WithValue(ctx, ctxUserEmail, email)
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

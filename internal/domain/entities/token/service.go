@@ -10,6 +10,9 @@ import (
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 )
 
+var ErrRefreshReuseDetected = errors.New("refresh_reuse_detected")
+var ErrRefreshInvalid = errors.New("refresh_invalid")
+
 type Service struct {
 	repository *Repository
 	validator  validations.StructValidator
@@ -47,23 +50,20 @@ func (s *Service) Create(ctx context.Context, tokenRequest *TokenRequest) (*Toke
 	return token, nil
 }
 
-func (s *Service) CreateResetPasswordToken(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) (*Token, error) {
-	tokenHash := HashToken(s.pepper, rawToken)
+func (s *Service) CreateInitialRefreshToken(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) (*Token, error) {
+	familyID := uuid.New()
 
-	tokenCreate := &Token{
-		UserID:    userID,
-		TokenType: string(jwtx.TokenTypeResetPassword),
-		TokenHash: tokenHash,
-		ExpiresAt: expiresAt,
+	t := &Token{
+		UserID:     userID,
+		TokenType:  string(jwtx.TokenTypeRefresh),
+		TokenHash:  HashToken(s.pepper, rawToken),
+		FamilyID:   familyID,
+		ParentID:   nil,
+		ExpiresAt:  expiresAt,
+		Is_Revoked: false,
 	}
 
-	token, err := s.repository.Create(ctx, tokenCreate)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return token, nil
+	return s.repository.Create(ctx, t)
 }
 
 func (s *Service) ValidateAndRevokeResetPasswordToken(ctx context.Context, rawToken string) (*Token, error) {
@@ -84,18 +84,6 @@ func (s *Service) ValidateAndRevokeResetPasswordToken(ctx context.Context, rawTo
 	return t, nil
 }
 
-func (s *Service) ValidateRefreshToken(ctx context.Context, rawToken string) (*Token, error) {
-	return s.repository.GetValidRefreshToken(ctx, rawToken, time.Now())
-}
-
-func (s *Service) GetAll(ctx context.Context) ([]*Token, error) {
-	tokens, err := s.repository.GetAll(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-	return tokens, nil
-}
 
 func (s *Service) RevokeToken(ctx context.Context, token string) error {
 	hashToken := HashToken(s.pepper, token)
@@ -117,9 +105,60 @@ func (s *Service) RevokeToken(ctx context.Context, token string) error {
 	return s.repository.RevokeToken(ctx, hashToken)
 }
 
-func (s *Service) RevokeRefreshIfValid(ctx context.Context, tokenIn string, now time.Time) (bool, error) {
-	hashToken := HashToken(s.pepper, tokenIn)
-	return s.repository.RevokeRefreshIfValid(ctx, hashToken, now)
+
+func (s *Service) RotateRefresh(ctx context.Context, rawRefresh string, now time.Time, signAccess func() (string, time.Time, error), signRefresh func() (string, time.Time, error),
+) (newAccess string, accessExp time.Time, newRefresh string, refreshExp time.Time, err error) {
+
+	err = s.Transaction(ctx, func(sTx *Service) error {
+		hash := HashToken(sTx.pepper, rawRefresh)
+
+		current, err := sTx.repository.GetRefreshByHashForUpdate(ctx, hash)
+		if err != nil {
+			return ErrRefreshInvalid
+		}
+
+		if !current.ExpiresAt.IsZero() && current.ExpiresAt.Before(now) {
+			return ErrRefreshInvalid
+		}
+
+		if current.Is_Revoked {
+			_ = sTx.repository.RevokeFamily(ctx, current.FamilyID, now, "reuse_detected")
+			return ErrRefreshReuseDetected
+		}
+
+		newAccess, accessExp, err = signAccess()
+		if err != nil {
+			return err
+		}
+
+		newRefresh, refreshExp, err = signRefresh()
+		if err != nil {
+			return err
+		}
+
+		next := &Token{
+			UserID:     current.UserID,
+			TokenType:  string(jwtx.TokenTypeRefresh),
+			TokenHash:  HashToken(sTx.pepper, newRefresh),
+			FamilyID:   current.FamilyID,
+			ParentID:   &current.ID,
+			ExpiresAt:  refreshExp,
+			Is_Revoked: false,
+		}
+
+		created, err := sTx.repository.Create(ctx, next)
+		if err != nil {
+			return err
+		}
+
+		if err := sTx.repository.MarkRotated(ctx, current.ID, created.ID, now); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return
 }
 
 func (s *Service) WithRepo(repo *Repository) *Service {

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Repository struct {
@@ -38,13 +40,6 @@ func (r *Repository) Create(ctx context.Context, token *Token) (*Token, error) {
 	return token, nil
 }
 
-func (r *Repository) GetAll(ctx context.Context) ([]*Token, error) {
-	var tokens []*Token
-	if err := r.db.WithContext(ctx).Find(&tokens).Error; err != nil {
-		return nil, err
-	}
-	return tokens, nil
-}
 
 func (r *Repository) GetByToken(ctx context.Context, tokenIn string) (*Token, error) {
 	var token Token
@@ -81,26 +76,6 @@ func (r *Repository) GetValidResetPasswordToken(ctx context.Context, tokenIn str
 	return &t, nil
 }
 
-func (r *Repository) GetValidRefreshToken(ctx context.Context, tokenIn string, now time.Time) (*Token, error) {
-	var t Token
-
-	err := r.db.WithContext(ctx).
-		Where("token_hash = ?", tokenIn).
-		Where("token_type = ?", string(jwtx.TokenTypeRefresh)).
-		Where("is_revoked = ?", false).
-		Where("expires_at > ?", now).
-		First(&t).Error
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("token inválido o expirado")
-		}
-
-		return nil, errors.New("error inesperado al buscar el token de recuperación")
-	}
-
-	return &t, nil
-}
 
 func (r *Repository) Update(ctx context.Context, token string, updates map[string]interface{}) error {
 	result := r.db.WithContext(ctx).
@@ -126,21 +101,50 @@ func (r *Repository) RevokeToken(ctx context.Context, token string) error {
 	})
 }
 
-func (r *Repository) RevokeRefreshIfValid(ctx context.Context, tokenIn string, now time.Time) (bool, error) {
-    result := r.db.WithContext(ctx).
-        Model(&Token{}).
-        Where("token_hash = ?", tokenIn).
-        Where("token_type = ?", string(jwtx.TokenTypeRefresh)).
-        Where("is_revoked = ?", false).
-        Where("expires_at > ?", now).
-        Updates(map[string]any{
-            "revoked_date": now,
-            "is_revoked":   true,
-        })
 
-    if result.Error != nil {
-        return false, result.Error
-    }
+func (r *Repository) GetRefreshByHashForUpdate(ctx context.Context, tokenHash string) (*Token, error) {
+	var t Token
 
-    return result.RowsAffected == 1, nil
+	err := r.db.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("token_hash = ?", tokenHash).
+		Where("token_type = ?", string(jwtx.TokenTypeRefresh)).
+		First(&t).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
+}
+
+func (r *Repository) RevokeFamily(ctx context.Context, familyID uuid.UUID, now time.Time, reason string) error {
+	result := r.db.WithContext(ctx).
+		Model(&Token{}).
+		Where("family_id = ?", familyID).
+		Where("token_type = ?", string(jwtx.TokenTypeRefresh)).
+		Where("is_revoked = ?", false).
+		Updates(map[string]any{
+			"revoked_date":   now,
+			"is_revoked":     true,
+			"revoked_reason": reason,
+		})
+
+	return result.Error
+}
+
+func (r *Repository) MarkRotated(ctx context.Context, tokenID uuid.UUID, replacedBy uuid.UUID, now time.Time) error {
+	reason := "rotated"
+	result := r.db.WithContext(ctx).
+		Model(&Token{}).
+		Where("id = ?", tokenID).
+		Updates(map[string]any{
+			"is_revoked":     true,
+			"revoked_date":   now,
+			"replaced_by_id": replacedBy,
+			"used_at":        now,
+			"revoked_reason": reason,
+		})
+
+	return result.Error
 }

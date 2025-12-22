@@ -81,7 +81,7 @@ func main() {
 	authHandler := auth.NewHTTPHandler(userService, tokenService, jwt, validator, mailerClient)
 
 	// Middlewares
-	authMiddleware := middlewares.NewAuthMiddleware(jwt, userService, tokenService)
+	authMiddleware := middlewares.NewAuthMiddleware(jwt)
 
 	r := routes.Router(routes.Deps{
 		UserHandler:    userHandler,

@@ -101,16 +101,17 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.tokens.Create(r.Context(), &token.TokenRequest{
-		TokenType: string(jwtx.TokenTypeRefresh),
-		Token:     refreshToken,
-		UserId:    user.ID,
-		ExpiresAt: refreshExpiration,
-	}); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "No se pudo guardar el refresh token", nil)
+	if _, err = h.tokens.CreateInitialRefreshToken(r.Context(), user.ID, refreshToken, refreshExpiration); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "Error generando el refresh token", map[string]string{"error": err.Error()})
 		return
 	}
+
 	utils.WriteSuccess(w, http.StatusOK, map[string]any{
+		"user": map[string]interface{}{
+			"id":    user.ID,
+			"email": user.Email,
+			"name":  user.Name,
+		},
 		"accessToken":      accessToken,
 		"refreshToken":     refreshToken,
 		"accessExpiresAt":  accessExpiration,
@@ -144,42 +145,36 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	)
 
 	err = h.tokens.Transaction(ctx, func(tokensTx *token.Service) error {
+		var err error
 
-		revoked, err := tokensTx.RevokeRefreshIfValid(ctx, refreshToken, now)
-		if err != nil {
-			return err
-		}
-		if !revoked {
+		newAccessToken, accessExp, newRefreshToken, refreshExp, err =
+			tokensTx.RotateRefresh(
+				ctx,
+				refreshToken,
+				now,
+				func() (string, time.Time, error) {
+					return h.jwt.Sign(userID, email, jwtx.TokenTypeAccess)
+				},
+				func() (string, time.Time, error) {
+					return h.jwt.Sign(userID, email, jwtx.TokenTypeRefresh)
+				},
+			)
 
-			return errors.New("refresh token invalido o usado")
-		}
-
-		newAccessToken, accessExp, err = h.jwt.Sign(userID, email, jwtx.TokenTypeAccess)
-		if err != nil {
-			return err
-		}
-
-		newRefreshToken, refreshExp, err = h.jwt.Sign(userID, email, jwtx.TokenTypeRefresh)
-		if err != nil {
-			return err
-		}
-
-		_, err = tokensTx.Create(ctx, &token.TokenRequest{
-			TokenType: string(jwtx.TokenTypeRefresh),
-			Token:     newRefreshToken,
-			UserId:    userID,
-			ExpiresAt: refreshExp,
-		})
 		return err
 	})
 
 	if err != nil {
-		if err.Error() == "refresh_invalid_or_used" {
-			utils.WriteError(w, http.StatusUnauthorized, "Refresh token invalido o ya utilizado", nil)
+		switch {
+		case errors.Is(err, token.ErrRefreshInvalid):
+			utils.WriteError(w, http.StatusUnauthorized, "Refresh token invalido o expirado", nil)
+			return
+		case errors.Is(err, token.ErrRefreshReuseDetected):
+			utils.WriteError(w, http.StatusUnauthorized, "Sesion comprometida. Inicia sesion nuevamente.", nil)
+			return
+		default:
+			utils.WriteError(w, http.StatusInternalServerError, "Error al refrescar token", nil)
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, "Error al refrescar token", nil)
-		return
 	}
 
 	utils.WriteSuccess(w, http.StatusOK, map[string]any{
@@ -189,7 +184,6 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		"refreshExpiresAt": refreshExp,
 	})
 }
-
 
 func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Request) {
 	var req RecoveryPasswordRequest
@@ -331,12 +325,7 @@ func (h *HTTPHandler) generateTokens(ctx context.Context, user *user.User) (*Tok
 		return nil, err
 	}
 
-	if _, err = h.tokens.Create(ctx, &token.TokenRequest{
-		TokenType: string(jwtx.TokenTypeRefresh),
-		Token:     refreshToken,
-		UserId:    user.ID,
-		ExpiresAt: expirationRefresh,
-	}); err != nil {
+	if _, err = h.tokens.CreateInitialRefreshToken(ctx, user.ID, refreshToken, expirationRefresh); err != nil {
 		return nil, err
 	}
 
