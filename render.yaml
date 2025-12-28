@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: powermix-backend
+    runtime: go
+    buildCommand: go build -o bin/api ./cmd/api
+    startCommand: ./bin/api
+    envVars:
+      - key: HTTP_ADDR
+        value: :10000
+      - key: DB_DRIVER
+        value: postgres
+      - key: DSN
+        sync: false
+      - key: MERCAGO_PAGO_TOKEN
+        sync: false
+      - key: COFFEJI_KEY
+        sync: false
+      - key: COFFEJI_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: JWT_REFRESH_HASH
+        sync: false

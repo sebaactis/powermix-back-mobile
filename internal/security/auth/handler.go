@@ -56,7 +56,7 @@ func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.generateTokens(r.Context(), user)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "cannot generate tokens", nil)
+		utils.WriteError(w, http.StatusInternalServerError, "No se pueden generar los tokens", nil)
 		return
 	}
 
@@ -169,7 +169,7 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 			utils.WriteError(w, http.StatusUnauthorized, "Refresh token invalido o expirado", nil)
 			return
 		case errors.Is(err, token.ErrRefreshReuseDetected):
-			utils.WriteError(w, http.StatusUnauthorized, "Sesion comprometida. Inicia sesion nuevamente.", nil)
+			utils.WriteError(w, http.StatusUnauthorized, "Tu sesion ya no puede ser utilizada. Inicia sesion nuevamente.", nil)
 			return
 		default:
 			utils.WriteError(w, http.StatusInternalServerError, "Error al refrescar token", nil)
@@ -290,7 +290,11 @@ func (h *HTTPHandler) parseLoginRequest(r *http.Request) (*LoginRequest, error) 
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
 	if fields, ok := h.validator.ValidateStruct(&req); !ok {
-		return nil, fmt.Errorf("validation error: %v", fields)
+		msgs := make([]string, 0, len(fields))
+		for _, m := range fields {
+			msgs = append(msgs, m)
+		}
+		return nil, errors.New(strings.Join(msgs, ", "))
 	}
 
 	return &req, nil
@@ -392,6 +396,6 @@ type TokenPair struct {
 }
 
 var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrAccountLocked      = errors.New("account locked")
+	ErrInvalidCredentials = errors.New("Credenciales inválidas")
+	ErrAccountLocked      = errors.New("Cuenta bloqueada")
 )

@@ -95,7 +95,7 @@ func main() {
 		Validator:      validator,
 	})
 
-	voucherCron := jobs.NewVoucherCron(voucherService, "@every 2m", 100, 30*time.Second)
+	voucherCron := jobs.NewVoucherCron(voucherService, "@every 15m", 100, 30*time.Second)
 	if err := voucherCron.Start(); err != nil {
 		log.Fatalf("cannot start voucher cron: %v", err)
 	}
