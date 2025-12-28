@@ -2,6 +2,7 @@ services:
   - type: web
     name: powermix-backend
     runtime: go
+    env: go
     buildCommand: go build -o bin/api ./cmd/api
     startCommand: ./bin/api
     envVars:
