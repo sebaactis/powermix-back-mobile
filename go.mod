@@ -1,6 +1,6 @@
 module github.com/sebaactis/powermix-back-mobile
 
-go 1.25.1
+go 1.23
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.10 // indirect
