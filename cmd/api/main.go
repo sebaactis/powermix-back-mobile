@@ -30,7 +30,7 @@ import (
 func main() {
 
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error al cargar el archivo .env", err)
+		log.Printf("No se encontró .env (ok en prod): %v", err)
 	}
 
 	cfg := config.Load()
