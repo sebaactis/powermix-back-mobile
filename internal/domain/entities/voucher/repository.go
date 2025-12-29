@@ -11,6 +11,9 @@ import (
 )
 
 var ErrNoAvailableVouchers = errors.New("no hay vouchers disponibles en este momento")
+var ErrVoucherNotFound = errors.New("voucher no encontrado")
+var ErrVoucherNotBelongsToUser = errors.New("el voucher no pertenece al usuario")
+var ErrVoucherNotUsed = errors.New("solo se pueden eliminar vouchers usados")
 
 type Repository struct {
 	db *gorm.DB
@@ -100,4 +103,30 @@ func (r *Repository) TouchChecked(ctx context.Context, id uuid.UUID, now time.Ti
 		Model(&Voucher{}).
 		Where("id = ?", id).
 		Update("last_checked_at", &now).Error
+}
+
+func (r *Repository) DeleteUsedVoucher(ctx context.Context, voucherID uuid.UUID, userID uuid.UUID) error {
+	result := r.db.WithContext(ctx).
+		Where("id = ?", voucherID).
+		Where("user_id = ?", userID).
+		Where("status = ?", VoucherStatusUsed).
+		Delete(&Voucher{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		var v Voucher
+		err := r.db.WithContext(ctx).Where("id = ?", voucherID).First(&v).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrVoucherNotFound
+		}
+		if v.UserID != userID {
+			return ErrVoucherNotBelongsToUser
+		}
+		return ErrVoucherNotUsed
+	}
+
+	return nil
 }

@@ -67,6 +67,7 @@ func (s *Service) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*Vouc
 
 	for i := range vouchers {
 		voucherResponse = append(voucherResponse, &VoucherResponse{
+			VoucherID:     vouchers[i].ID,
 			UserID:        vouchers[i].UserID,
 			QRCode:        vouchers[i].QRCode,
 			ImageURL:      s.GetVoucherImageUrl(vouchers[i].StoragePath),
@@ -121,4 +122,8 @@ func (s *Service) GetVoucherImageUrl(storagePath string) string {
 
 	return imageURL
 
+}
+
+func (s *Service) DeleteVoucher(ctx context.Context, voucherID uuid.UUID, userID uuid.UUID) error {
+	return s.repo.DeleteUsedVoucher(ctx, voucherID, userID)
 }

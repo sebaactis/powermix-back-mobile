@@ -11,6 +11,7 @@ type VoucherRequest struct {
 }
 
 type VoucherResponse struct {
+	VoucherID uuid.UUID
 	UserID   uuid.UUID
 	QRCode   string
 	ImageURL string
