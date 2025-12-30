@@ -25,6 +25,16 @@ func NewRepository(db *gorm.DB) *Repository {
 	}
 }
 
+// WithTx returns a new Repository that uses the given transaction
+func (r *Repository) WithTx(tx *gorm.DB) *Repository {
+	return &Repository{db: tx}
+}
+
+// DB exposes the underlying db connection for transaction management
+func (r *Repository) DB() *gorm.DB {
+	return r.db
+}
+
 func (r *Repository) AssignNextVoucher(ctx context.Context, voucherRequest *VoucherRequest) (*Voucher, error) {
 	var result *Voucher
 

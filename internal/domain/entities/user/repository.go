@@ -18,6 +18,16 @@ type Repository struct {
 
 func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 
+// WithTx returns a new Repository that uses the given transaction
+func (r *Repository) WithTx(tx *gorm.DB) *Repository {
+	return &Repository{db: tx}
+}
+
+// DB exposes the underlying db connection for transaction management
+func (r *Repository) DB() *gorm.DB {
+	return r.db
+}
+
 func (r *Repository) Create(ctx context.Context, user *User) error {
 	var existing User
 
@@ -208,7 +218,7 @@ func (r *Repository) ResetStampsCounter(ctx context.Context, id uuid.UUID) (int,
 
 	var user User
 
-	if err := r.db.WithContext(ctx).Select("login_attempt").First(&user, id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Select("stamps_counter").First(&user, id).Error; err != nil {
 		return 0, err
 	}
 

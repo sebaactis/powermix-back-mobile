@@ -29,6 +29,17 @@ func NewService(repository *Repository, tokenService *token.Service, v validatio
 	return &Service{repository: repository, tokenService: tokenService, db: repository.db, validator: v, mailer: mailer}
 }
 
+// WithTx returns a new Service that uses the given transaction
+func (s *Service) WithTx(tx *gorm.DB) *Service {
+	return &Service{
+		repository:   s.repository.WithTx(tx),
+		tokenService: s.tokenService,
+		validator:    s.validator,
+		mailer:       s.mailer,
+		db:           tx,
+	}
+}
+
 func (s *Service) Create(ctx context.Context, user *UserCreate) (*User, error) {
 	name := strings.TrimSpace(user.Name)
 	email := strings.TrimSpace(user.Email)

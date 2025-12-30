@@ -16,6 +16,16 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// WithTx returns a new Repository that uses the given transaction
+func (r *Repository) WithTx(tx *gorm.DB) *Repository {
+	return &Repository{db: tx}
+}
+
+// DB exposes the underlying db connection for transaction management
+func (r *Repository) DB() *gorm.DB {
+	return r.db
+}
+
 func (r *Repository) Create(ctx context.Context, proof *Proof) (*Proof, error) {
 
 	err := r.db.WithContext(ctx).Create(proof).Error

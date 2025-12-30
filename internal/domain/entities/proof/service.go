@@ -14,6 +14,7 @@ import (
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/voucher"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -75,32 +76,49 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 		ProductName:       &goodsName,
 	}
 
-	proofResult, err := s.repo.Create(ctx, newProof)
+	// Use a transaction to ensure atomicity
+	var proofResult *Proof
+	var quantityStamps int
+
+	err = s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Create repositories/services that use this transaction
+		txProofRepo := s.repo.WithTx(tx)
+		txUserService := s.userService.WithTx(tx)
+		txVoucherService := s.voucherService.WithTx(tx)
+
+		// 1. Create the proof
+		var createErr error
+		proofResult, createErr = txProofRepo.Create(ctx, newProof)
+		if createErr != nil {
+			return createErr
+		}
+
+		// 2. Increment stamps counter
+		quantityStamps, createErr = txUserService.IncrementStampsCounter(ctx, proofResult.UserID)
+		if createErr != nil {
+			return createErr
+		}
+
+		// 3. If stamps == 5, assign voucher and reset counter
+		if quantityStamps == 5 {
+			_, createErr = txVoucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{
+				UserID: proofResult.UserID,
+			})
+			if createErr != nil {
+				return createErr
+			}
+
+			_, createErr = txUserService.ResetStampsCounter(ctx, proofResult.UserID)
+			if createErr != nil {
+				return createErr
+			}
+		}
+
+		return nil
+	})
 
 	if err != nil {
 		return nil, err
-	}
-
-	quantityStamps, err := s.userService.IncrementStampsCounter(ctx, proofResult.UserID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if quantityStamps == 5 {
-
-		_, err = s.voucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{
-			UserID: proofResult.UserID})
-
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = s.userService.ResetStampsCounter(ctx, proofResult.UserID)
-
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return &ProofResponse{
@@ -174,30 +192,52 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 		ProductName:       &goodsName,
 	}
 
-	proofResult, err := s.repo.Create(ctx, newProof)
+	// Use a transaction to ensure atomicity
+	var proofResult *Proof
+	var quantityStamps int
+
+	err = s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Create repositories/services that use this transaction
+		txProofRepo := s.repo.WithTx(tx)
+		txUserService := s.userService.WithTx(tx)
+		txVoucherService := s.voucherService.WithTx(tx)
+
+		// 1. Create the proof
+		var createErr error
+		proofResult, createErr = txProofRepo.Create(ctx, newProof)
+		if createErr != nil {
+			return createErr
+		}
+
+		// 2. Increment stamps counter
+		quantityStamps, createErr = txUserService.IncrementStampsCounter(ctx, proofResult.UserID)
+		if createErr != nil {
+			return createErr
+		}
+
+		log.Printf("proofResult (others): %+v", proofResult)
+		log.Printf("quantityStamps (others): %d", quantityStamps)
+
+		// 3. If stamps == 5, assign voucher and reset counter
+		if quantityStamps == 5 {
+			_, createErr = txVoucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{
+				UserID: proofResult.UserID,
+			})
+			if createErr != nil {
+				return createErr
+			}
+
+			_, createErr = txUserService.ResetStampsCounter(ctx, proofResult.UserID)
+			if createErr != nil {
+				return createErr
+			}
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
-	}
-
-	quantityStamps, err := s.userService.IncrementStampsCounter(ctx, proofResult.UserID)
-
-	log.Printf("✅ proofResult (others): %+v", proofResult)
-	log.Printf("✅ quantityStamps (others): %+v", quantityStamps)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if quantityStamps == 5 {
-		_, err = s.voucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{UserID: proofResult.UserID})
-
-		if err != nil {
-			return nil, err
-		}
-		_, err = s.userService.ResetStampsCounter(ctx, proofResult.UserID)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return &ProofResponse{

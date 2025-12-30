@@ -11,6 +11,7 @@ import (
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/coffeeji"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -26,6 +27,16 @@ func NewService(repo *Repository, userRepository *user.Repository, mailer mailer
 		userRepository: userRepository,
 		mailer:         mailer,
 		coffejiClient:  coffejiClient,
+	}
+}
+
+// WithTx returns a new Service that uses the given transaction
+func (s *Service) WithTx(tx *gorm.DB) *Service {
+	return &Service{
+		repo:           s.repo.WithTx(tx),
+		userRepository: s.userRepository.WithTx(tx),
+		mailer:         s.mailer,
+		coffejiClient:  s.coffejiClient,
 	}
 }
 
