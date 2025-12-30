@@ -69,13 +69,13 @@ func (s *Service) CreateInitialRefreshToken(ctx context.Context, userID uuid.UUI
 func (s *Service) ValidateAndRevokeResetPasswordToken(ctx context.Context, rawToken string) (*Token, error) {
 	now := time.Now()
 
-	t, err := s.repository.GetValidResetPasswordToken(ctx, rawToken, now)
+	hashToken := HashToken(s.pepper, rawToken)
+
+	t, err := s.repository.GetValidResetPasswordToken(ctx, hashToken, now)
 
 	if err != nil {
 		return nil, err
 	}
-
-	hashToken := HashToken(s.pepper, rawToken)
 
 	if err := s.repository.RevokeToken(ctx, hashToken); err != nil {
 		return nil, err
@@ -83,7 +83,6 @@ func (s *Service) ValidateAndRevokeResetPasswordToken(ctx context.Context, rawTo
 
 	return t, nil
 }
-
 
 func (s *Service) RevokeToken(ctx context.Context, token string) error {
 	hashToken := HashToken(s.pepper, token)
@@ -104,7 +103,6 @@ func (s *Service) RevokeToken(ctx context.Context, token string) error {
 
 	return s.repository.RevokeToken(ctx, hashToken)
 }
-
 
 func (s *Service) RotateRefresh(ctx context.Context, rawRefresh string, now time.Time, signAccess func() (string, time.Time, error), signRefresh func() (string, time.Time, error),
 ) (newAccess string, accessExp time.Time, newRefresh string, refreshExp time.Time, err error) {

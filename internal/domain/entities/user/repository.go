@@ -137,9 +137,16 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, updates map[strin
 }
 
 func (r *Repository) UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) (*User, error) {
+
+	updates := map[string]interface{}{
+		"password":      hashedPassword,
+		"login_attempt": 0,
+		"locked_until":  nil,
+	}
+
 	result := r.db.WithContext(ctx).
 		Model(&User{}).
-		Where("id = ?", id).UpdateColumn("password", hashedPassword)
+		Where("id = ?", id).Updates(updates)
 
 	if result.Error != nil {
 		return nil, result.Error
