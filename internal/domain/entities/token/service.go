@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
+	"gorm.io/gorm"
 )
 
 var ErrRefreshReuseDetected = errors.New("refresh_reuse_detected")
@@ -157,6 +158,14 @@ func (s *Service) RotateRefresh(ctx context.Context, rawRefresh string, now time
 	})
 
 	return
+}
+
+func (s *Service) WithTx(tx *gorm.DB) *Service {
+	return &Service{
+		repository: s.repository.WithTx(tx),
+		validator:  s.validator,
+		pepper:     s.pepper,
+	}
 }
 
 func (s *Service) WithRepo(repo *Repository) *Service {

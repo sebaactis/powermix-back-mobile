@@ -1,5 +1,7 @@
 package auth
 
+import "github.com/google/uuid"
+
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email,min=6,max=32"`
 	Password string `json:"password" validate:"required,min=8,max=30"`
@@ -22,5 +24,5 @@ type RecoveryPasswordRequestResponse struct {
 	Token string `json:"token"`
 }
 type UnlockUserReq struct {
-	UserId uint `json:"userId"`
+	UserId uuid.UUID `json:"userId"`
 }

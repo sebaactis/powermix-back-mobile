@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
@@ -29,7 +30,6 @@ func NewService(repository *Repository, tokenService *token.Service, v validatio
 	return &Service{repository: repository, tokenService: tokenService, db: repository.db, validator: v, mailer: mailer}
 }
 
-// WithTx returns a new Service that uses the given transaction
 func (s *Service) WithTx(tx *gorm.DB) *Service {
 	return &Service{
 		repository:   s.repository.WithTx(tx),
@@ -94,8 +94,30 @@ func (s *Service) ResetStampsCounter(ctx context.Context, id uuid.UUID) (int, er
 	return s.repository.ResetStampsCounter(ctx, id)
 }
 
-func (s *Service) UnlockUser(ctx context.Context, id uint) error {
+func (s *Service) UnlockUser(ctx context.Context, id uuid.UUID) error {
 	return s.repository.UnlockUser(ctx, id)
+}
+
+func (s *Service) CheckAndUnlockIfExpired(ctx context.Context, userID uuid.UUID) (bool, error) {
+	user, err := s.repository.FindByID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	if user.Locked_until.IsZero() || user.Locked_until.Before(time.Now()) {
+
+		if !user.Locked_until.IsZero() {
+
+			err := s.repository.UnlockUser(ctx, user.ID)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+
+	return false, nil
 }
 
 func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecoveryPassword) (*User, error) {
@@ -104,31 +126,42 @@ func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecovery
 		return nil, &validations.ValidationError{Fields: fields}
 	}
 
-	user, err := s.repository.FindByID(ctx, req.UserID)
-
-	if err != nil {
-		return nil, err
-	}
-
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(req.Password)), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	var updatedUser *User
+
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+
+		txUserRepo := s.repository.WithTx(tx)
+		txTokenService := s.tokenService.WithTx(tx)
+
+
+		user, err := txUserRepo.FindByID(ctx, req.UserID)
+		if err != nil {
+			return err
+		}
+
+		updatedUser, err = txUserRepo.UpdatePassword(ctx, user.ID, string(passwordHash))
+		if err != nil {
+			return err
+		}
+
+		_, err = txTokenService.ValidateAndRevokeResetPasswordToken(ctx, req.Token)
+		if err != nil {
+			return err
+		}
+ 
+		return nil
+	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	user, err = s.repository.UpdatePassword(ctx, user.ID, string(passwordHash))
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = s.tokenService.ValidateAndRevokeResetPasswordToken(ctx, req.Token)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return user, nil
+	return updatedUser, nil
 }
 
 func (s *Service) UpdatePassword(ctx context.Context, userId uuid.UUID, req UserChangePassword) (*User, error) {

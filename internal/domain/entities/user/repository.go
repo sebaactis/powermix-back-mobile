@@ -8,9 +8,28 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sebaactis/powermix-back-mobile/internal/security/oauth"
 	"gorm.io/gorm"
 )
+
+// isDuplicateKeyError verifica si el error es de clave duplicada (constraint violation)
+// PostgreSQL error code 23505: unique_violation
+func isDuplicateKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Intentar obtener el error específico de PostgreSQL
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505" // unique_violation
+	}
+
+	// Fallback para otros casos
+	return strings.Contains(err.Error(), "duplicate key") ||
+		strings.Contains(err.Error(), "unique constraint")
+}
 
 type Repository struct {
 	db *gorm.DB
@@ -29,36 +48,44 @@ func (r *Repository) DB() *gorm.DB {
 }
 
 func (r *Repository) Create(ctx context.Context, user *User) error {
+
 	var existing User
 
-	err := r.db.WithContext(ctx).
-		Where("email = ?", user.Email).
-		First(&existing).Error
 
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return r.db.WithContext(ctx).Create(user).Error
-	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
-	if err != nil {
-		return err
-	}
+		insertErr := tx.Create(user).Error
 
-	if strings.TrimSpace(existing.Password) != "" {
-		return ErrDuplicateEmail
-	}
+		if insertErr != nil {
 
-	existing.Password = user.Password
-	return r.db.WithContext(ctx).Save(&existing).Error
+			if isDuplicateKeyError(insertErr) {
+
+				if err := tx.Where("email = ?", user.Email).First(&existing).Error; err != nil {
+					return err
+				}
+
+
+				if strings.TrimSpace(existing.Password) != "" {
+					return ErrDuplicateEmail
+				}
+
+				existing.Password = user.Password
+				return tx.Save(&existing).Error
+			}
+			return insertErr
+		}
+
+		return nil
+	})
+
+	return err
 }
 
 func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserInfo) (*User, error) {
 	var newUser User
 
-	err := r.db.WithContext(ctx).
-		Where("email = ?", info.Email).
-		First(&newUser).Error
 
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		newUser = User{
 			Name:          info.Name,
@@ -68,26 +95,40 @@ func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserI
 			StampsCounter: 0,
 		}
 
-		if err := r.db.WithContext(ctx).Create(&newUser).Error; err != nil {
-			return nil, err
+		insertErr := tx.Create(&newUser).Error
+
+		if insertErr != nil {
+
+			if isDuplicateKeyError(insertErr) {
+
+				if err := tx.Where("email = ?", info.Email).First(&newUser).Error; err != nil {
+					return err
+				}
+
+				if newUser.OAuthProvider != "" {
+					log.Printf("ℹ️ Usuario ya existe con OAuth: %+v", newUser)
+					return nil
+				}
+
+				newUser.OAuthProvider = info.Provider
+				newUser.OAuthID = info.ProviderID
+
+				if err := tx.Save(&newUser).Error; err != nil {
+					return err
+				}
+
+				log.Printf("🔁 Usuario existente actualizado con OAuth: %+v", newUser)
+				return nil
+			}
+			return insertErr
 		}
 
 		log.Printf("✅ Usuario nuevo con OAuth creado: %+v", newUser)
-		return &newUser, nil
-	}
+		return nil
+	})
 
 	if err != nil {
 		return nil, err
-	}
-
-	if newUser.OAuthProvider == "" {
-		newUser.OAuthProvider = info.Provider
-		newUser.OAuthID = info.ProviderID
-
-		if err := r.db.WithContext(ctx).Save(&newUser).Error; err != nil {
-			return nil, err
-		}
-		log.Printf("🔁 Usuario existente actualizado con OAuth: %+v", newUser)
 	}
 
 	return &newUser, nil
@@ -147,32 +188,24 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, updates map[strin
 }
 
 func (r *Repository) UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) (*User, error) {
+	var user User
 
-	updates := map[string]interface{}{
-		"password":      hashedPassword,
-		"login_attempt": 0,
-		"locked_until":  nil,
-	}
-
-	result := r.db.WithContext(ctx).
-		Model(&User{}).
-		Where("id = ?", id).Updates(updates)
-
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		return nil, errors.New("Usuario no encontrado")
-	}
-
-	user, err := r.FindByID(ctx, id)
+	err := r.db.WithContext(ctx).Raw(`
+		UPDATE users
+		SET password = ?, login_attempt = 0, locked_until = NULL
+		WHERE id = ?
+		RETURNING *
+	`, hashedPassword, id).Scan(&user).Error
 
 	if err != nil {
 		return nil, err
 	}
 
-	return user, nil
+	if r.db.RowsAffected == 0 {
+		return nil, errors.New("Usuario no encontrado")
+	}
+
+	return &user, nil
 }
 
 func (r *Repository) Delete(ctx context.Context, id uint) error {
@@ -227,30 +260,44 @@ func (r *Repository) ResetStampsCounter(ctx context.Context, id uuid.UUID) (int,
 
 func (r *Repository) IncrementLoginAttempt(ctx context.Context, id uuid.UUID) (int, error) {
 
-	result := r.db.WithContext(ctx).
-		Model(&User{}).
-		Where("id = ?", id).
-		Update("login_attempt", gorm.Expr("login_attempt + ?", 1))
+	var newAttemptCount int
 
-	if result.Error != nil {
-		return 0, result.Error
-	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
-	if result.RowsAffected == 0 {
-		return 0, errors.New("user not found")
-	}
+		err := tx.Raw(`
+			UPDATE users
+			SET login_attempt = login_attempt + 1
+			WHERE id = ?
+			RETURNING login_attempt
+		`, id).Scan(&newAttemptCount).Error
 
-	var user User
+		if err != nil {
+			return err
+		}
 
-	if err := r.db.WithContext(ctx).Select("login_attempt").First(&user, id).Error; err != nil {
+		if newAttemptCount == 0 {
+			return errors.New("No existe el usuario proporcionado")
+		}
+
+		if newAttemptCount >= 5 {
+			now := time.Now()
+			err := tx.Model(&User{}).
+				Where("id = ?", id).
+				Update("locked_until", now.Add(15*time.Minute)).Error
+
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		return 0, err
 	}
 
-	if user.LoginAttempt >= 5 {
-		r.LockedUser(ctx, id)
-	}
-
-	return user.LoginAttempt, nil
+	return newAttemptCount, nil
 }
 
 func (r *Repository) LockedUser(ctx context.Context, id uuid.UUID) error {
@@ -266,14 +313,24 @@ func (r *Repository) LockedUser(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *Repository) UnlockUser(ctx context.Context, id uint) error {
+func (r *Repository) UnlockUser(ctx context.Context, id uuid.UUID) error {
 
-	if err := r.db.WithContext(ctx).
+	updates := map[string]interface{}{
+		"locked_until":  nil,
+		"login_attempt": 0,
+	}
+
+	result := r.db.WithContext(ctx).
 		Model(&User{}).
 		Where("id = ?", id).
-		Update("locked_until", nil).
-		Update("login_attempt", 0); err != nil {
-		return err.Error
+		Updates(updates)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("user not found")
 	}
 
 	return nil
