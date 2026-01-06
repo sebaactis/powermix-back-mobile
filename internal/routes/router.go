@@ -63,6 +63,7 @@ func Router(d Deps) *chi.Mux {
 
 			// Voucher
 			pr.Get("/voucher/me", d.VoucherHandler.GetAllByUserId)
+			pr.Get("/voucher/available", d.VoucherHandler.GetAvailableCount)
 			pr.Delete("/voucher/{id}", d.VoucherHandler.DeleteVoucher)
 
 		})

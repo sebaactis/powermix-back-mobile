@@ -140,3 +140,12 @@ func (r *Repository) DeleteUsedVoucher(ctx context.Context, voucherID uuid.UUID,
 
 	return nil
 }
+
+func (r *Repository) CountAvailable(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&Voucher{}).
+		Where("is_assigned = ?", false).
+		Count(&count).Error
+	return count, err
+}

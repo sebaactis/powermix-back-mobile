@@ -106,3 +106,13 @@ func (h *HTTPHandler) DeleteVoucher(w http.ResponseWriter, r *http.Request) {
 
 	utils.WriteSuccess(w, http.StatusOK, map[string]string{"message": "Voucher eliminado correctamente"})
 }
+
+func (h *HTTPHandler) GetAvailableCount(w http.ResponseWriter, r *http.Request) {
+	count, err := h.service.GetAvailableCount(r.Context())
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "Error al obtener la cantidad de vouchers disponibles", map[string]string{"error": err.Error()})
+		return
+	}
+
+	utils.WriteSuccess(w, http.StatusOK, map[string]int64{"available": count})
+}

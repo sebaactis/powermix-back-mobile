@@ -138,3 +138,7 @@ func (s *Service) GetVoucherImageUrl(storagePath string) string {
 func (s *Service) DeleteVoucher(ctx context.Context, voucherID uuid.UUID, userID uuid.UUID) error {
 	return s.repo.DeleteUsedVoucher(ctx, voucherID, userID)
 }
+
+func (s *Service) GetAvailableCount(ctx context.Context) (int64, error) {
+	return s.repo.CountAvailable(ctx)
+}
