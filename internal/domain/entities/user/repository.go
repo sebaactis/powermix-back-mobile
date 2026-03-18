@@ -51,7 +51,6 @@ func (r *Repository) Create(ctx context.Context, user *User) error {
 
 	var existing User
 
-
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		insertErr := tx.Create(user).Error
@@ -63,7 +62,6 @@ func (r *Repository) Create(ctx context.Context, user *User) error {
 				if err := tx.Where("email = ?", user.Email).First(&existing).Error; err != nil {
 					return err
 				}
-
 
 				if strings.TrimSpace(existing.Password) != "" {
 					return ErrDuplicateEmail
@@ -83,7 +81,6 @@ func (r *Repository) Create(ctx context.Context, user *User) error {
 
 func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserInfo) (*User, error) {
 	var newUser User
-
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
@@ -106,7 +103,7 @@ func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserI
 				}
 
 				if newUser.OAuthProvider != "" {
-					log.Printf("ℹ️ Usuario ya existe con OAuth: %+v", newUser)
+					log.Printf("ℹ️ Usuario ya existe con OAuth: id=%s email=%s provider=%s", newUser.ID, newUser.Email, newUser.OAuthProvider)
 					return nil
 				}
 
@@ -117,13 +114,13 @@ func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserI
 					return err
 				}
 
-				log.Printf("🔁 Usuario existente actualizado con OAuth: %+v", newUser)
+				log.Printf("🔁 Usuario existente actualizado con OAuth: id=%s email=%s", newUser.ID, newUser.Email)
 				return nil
 			}
 			return insertErr
 		}
 
-		log.Printf("✅ Usuario nuevo con OAuth creado: %+v", newUser)
+		log.Printf("✅ Usuario nuevo con OAuth creado: id=%s email=%s", newUser.ID, newUser.Email)
 		return nil
 	})
 

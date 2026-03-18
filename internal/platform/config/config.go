@@ -1,6 +1,10 @@
 package config
 
-import "os"
+import (
+	"fmt"
+	"os"
+	"strings"
+)
 
 type Config struct {
 	HTTPAddr         string
@@ -13,22 +17,38 @@ type Config struct {
 	HashToken        string
 }
 
-func getEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+func Load() (Config, error) {
+	cfg := Config{
+		HTTPAddr:         os.Getenv("HTTP_ADDR"),
+		Driver:           os.Getenv("DB_DRIVER"),
+		DSN:              os.Getenv("DSN"),
+		MercagoPagoToken: os.Getenv("MERCAGO_PAGO_TOKEN"),
+		CoffejiKey:       os.Getenv("COFFEJI_KEY"),
+		CoffejiSecret:    os.Getenv("COFFEJI_SECRET"),
+		ResendKey:        os.Getenv("RESEND_API_KEY"),
+		HashToken:        os.Getenv("JWT_REFRESH_HASH"),
 	}
-	return def
+	if err := cfg.validate(); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
 }
 
-func Load() Config {
-	return Config{
-		HTTPAddr:         getEnv("HTTP_ADDR", ":8080"),
-		Driver:           getEnv("DB_DRIVER", "postgres"),
-		DSN:              getEnv("DSN", "postgresql://postgres:Powermix0403@@db.kzlzslphwkmypcblgntn.supabase.co:5432/postgres"),
-		MercagoPagoToken: getEnv("MERCAGO_PAGO_TOKEN", "TEST"),
-		CoffejiKey:       getEnv("COFFEJI_KEY", "TEST"),
-		CoffejiSecret:    getEnv("COFFEJI_SECRET", "TEST"),
-		ResendKey:        getEnv("RESEND_API_KEY", "TEST"),
-		HashToken:        getEnv("JWT_REFRESH_HASH", "TEST"),
+func (c Config) validate() error {
+	required := map[string]string{
+		"HTTP_ADDR":          c.HTTPAddr,
+		"DB_DRIVER":          c.Driver,
+		"DSN":                c.DSN,
+		"MERCAGO_PAGO_TOKEN": c.MercagoPagoToken,
+		"COFFEJI_KEY":        c.CoffejiKey,
+		"COFFEJI_SECRET":     c.CoffejiSecret,
+		"RESEND_API_KEY":     c.ResendKey,
+		"JWT_REFRESH_HASH":   c.HashToken,
 	}
+	for key, val := range required {
+		if strings.TrimSpace(val) == "" {
+			return fmt.Errorf("variable de entorno requerida no configurada: %s", key)
+		}
+	}
+	return nil
 }

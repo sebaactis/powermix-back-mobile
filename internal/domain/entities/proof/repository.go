@@ -62,8 +62,8 @@ func (r *Repository) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UU
 	baseQuery := r.db.WithContext(ctx).Model(&Proof{}).Where("user_id = ?", userId)
 
 	// FILTROS
-	if filters.ID_MP != "" {
-		baseQuery = baseQuery.Where("id_mp ILIKE ?", "%"+filters.ID_MP+"%")
+	if filters.IDMP != "" {
+		baseQuery = baseQuery.Where("id_mp ILIKE ?", "%"+filters.IDMP+"%")
 	}
 
 	if filters.FromProofDate != nil {
@@ -117,7 +117,7 @@ func (r *Repository) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID)
 func (r *Repository) GetById(ctx context.Context, id string) (*Proof, error) {
 	var proof Proof
 
-	err := r.db.WithContext(ctx).First(&proof, "ID_MP = ?", id).Error
+	err := r.db.WithContext(ctx).First(&proof, "id_mp = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

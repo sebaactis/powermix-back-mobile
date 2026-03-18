@@ -1,0 +1,35 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Tech stack: Go 1.25, chi v5, GORM + PostgreSQL, JWT (golang-jwt/v5), Resend mailer, MercadoPago client, robfig/cron
+  Architecture: Monolith — handler → service → repository per entity (user, proof, voucher, token)
+  Testing: go test (standard), minimal coverage currently
+  Style: slog structured logging, GORM transactions with WithTx pattern, DI explicit in main.go
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+    - State which existing tests (if any) cover the area
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load golang-patterns skill before implementing
+    tdd: false
+    test_command: "go test ./..."
+  verify:
+    test_command: "go test ./..."
+    build_command: "go build ./..."
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas (large removals)

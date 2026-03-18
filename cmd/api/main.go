@@ -33,7 +33,10 @@ func main() {
 		log.Printf("No se encontró .env (ok en prod): %v", err)
 	}
 
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("configuración inválida: %v", err)
+	}
 
 	db, err := database.Open(cfg)
 	if err != nil {
@@ -45,7 +48,10 @@ func main() {
 	}
 
 	// Utils
-	jwt := jwtx.NewJWT()
+	jwt, err := jwtx.NewJWT()
+	if err != nil {
+		log.Fatalf("error inicializando JWT: %v", err)
+	}
 	validator := validations.NewValidator()
 	rateLimiter := middlewares.NewRateLimiter(10, 2*time.Minute)
 

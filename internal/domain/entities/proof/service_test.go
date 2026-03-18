@@ -30,7 +30,7 @@ func (m *MockProofRepository) Create(ctx context.Context, proof *Proof) (*Proof,
 		return nil, m.FailError
 	}
 	proof.ID = uuid.New()
-	m.Proofs[proof.ID_MP] = proof
+	m.Proofs[proof.IDMP] = proof
 	return proof, nil
 }
 
@@ -236,11 +236,11 @@ func TestAtomicity_RollbackWhenNoVouchersAvailable(t *testing.T) {
 	// Simular la logica de Create
 	newProof := &Proof{
 		UserID:            userID,
-		ID_MP:             "TEST-123",
-		Date_Approved_MP:  utils.FormattedTime{Time: time.Now()},
-		Operation_Type_MP: "regular_payment",
-		Status_MP:         "approved",
-		Amount_MP:         1000.00,
+		IDMP:             "TEST-123",
+		DateApprovedMP:  utils.FormattedTime{Time: time.Now()},
+		OperationTypeMP: "regular_payment",
+		StatusMP:         "approved",
+		AmountMP:         1000.00,
 		ProofDate:         utils.NowFormatted(),
 	}
 
@@ -332,11 +332,11 @@ func TestAtomicity_SuccessWhenVouchersAvailable(t *testing.T) {
 
 	newProof := &Proof{
 		UserID:            userID,
-		ID_MP:             "TEST-456",
-		Date_Approved_MP:  utils.FormattedTime{Time: time.Now()},
-		Operation_Type_MP: "regular_payment",
-		Status_MP:         "approved",
-		Amount_MP:         1500.00,
+		IDMP:             "TEST-456",
+		DateApprovedMP:  utils.FormattedTime{Time: time.Now()},
+		OperationTypeMP: "regular_payment",
+		StatusMP:         "approved",
+		AmountMP:         1500.00,
 		ProofDate:         utils.NowFormatted(),
 	}
 
@@ -417,7 +417,7 @@ func TestAtomicity_RollbackWhenProofCreationFails(t *testing.T) {
 
 	newProof := &Proof{
 		UserID: userID,
-		ID_MP:  "TEST-FAIL",
+		IDMP:  "TEST-FAIL",
 	}
 
 	err := txSimulator.Execute(func() error {
@@ -470,7 +470,7 @@ func TestAtomicity_RollbackWhenIncrementFails(t *testing.T) {
 
 	newProof := &Proof{
 		UserID: userID,
-		ID_MP:  "TEST-INCREMENT-FAIL",
+		IDMP:  "TEST-INCREMENT-FAIL",
 	}
 
 	err := txSimulator.Execute(func() error {
@@ -525,7 +525,7 @@ func TestAtomicity_NoVoucherAssignmentBelow5Stamps(t *testing.T) {
 
 	newProof := &Proof{
 		UserID: userID,
-		ID_MP:  "TEST-BELOW-5",
+		IDMP:  "TEST-BELOW-5",
 	}
 
 	err := txSimulator.Execute(func() error {
@@ -599,7 +599,7 @@ func TestAtomicity_MultipleProofsToReach5(t *testing.T) {
 
 		newProof := &Proof{
 			UserID: userID,
-			ID_MP:  "TEST-MULTI-" + string(rune('0'+i)),
+			IDMP:  "TEST-MULTI-" + string(rune('0'+i)),
 		}
 
 		err := txSimulator.Execute(func() error {

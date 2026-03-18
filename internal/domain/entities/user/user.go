@@ -13,7 +13,7 @@ type User struct {
 	Password      string    `gorm:"not null"`
 	StampsCounter int       `gorm:"default:0"`
 	LoginAttempt  int       `json:"login_attempt" gorm:"default:0"`
-	Locked_until  time.Time `json:"locked_until" gorm:"default:null"`
+	LockedUntil   time.Time `json:"locked_until" gorm:"column:locked_until;default:null"`
 	OAuthProvider string    `gorm:"column:oauth_provider;type:varchar(20);default:null"`
 	OAuthID       string    `gorm:"column:oauth_id;type:varchar(100);default:null"`
 	CreatedAt     time.Time

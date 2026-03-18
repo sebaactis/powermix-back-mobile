@@ -157,7 +157,7 @@ func (h *HTTPHandler) SendEmailContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.getUserIDFromRequest(r);
+	_, err := h.getUserIDFromRequest(r)
 
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "Token invalido", map[string]string{"error": err.Error()})

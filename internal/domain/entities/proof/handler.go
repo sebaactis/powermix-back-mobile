@@ -115,7 +115,7 @@ func (h *HTTPHandler) GetAllByUserIdPaginated(w http.ResponseWriter, r *http.Req
 
 	var filters ProofFilters
 
-	filters.ID_MP = q.Get("id_mp")
+	filters.IDMP = q.Get("id_mp")
 
 	const dateLayout = "2006-01-02"
 

@@ -104,9 +104,9 @@ func (s *Service) CheckAndUnlockIfExpired(ctx context.Context, userID uuid.UUID)
 		return false, err
 	}
 
-	if user.Locked_until.IsZero() || user.Locked_until.Before(time.Now()) {
+	if user.LockedUntil.IsZero() || user.LockedUntil.Before(time.Now()) {
 
-		if !user.Locked_until.IsZero() {
+		if !user.LockedUntil.IsZero() {
 
 			err := s.repository.UnlockUser(ctx, user.ID)
 			if err != nil {
@@ -138,7 +138,6 @@ func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecovery
 		txUserRepo := s.repository.WithTx(tx)
 		txTokenService := s.tokenService.WithTx(tx)
 
-
 		user, err := txUserRepo.FindByID(ctx, req.UserID)
 		if err != nil {
 			return err
@@ -153,7 +152,7 @@ func (s *Service) UpdatePasswordByRecovery(ctx context.Context, req UserRecovery
 		if err != nil {
 			return err
 		}
- 
+
 		return nil
 	})
 
