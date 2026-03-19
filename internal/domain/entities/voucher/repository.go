@@ -73,11 +73,11 @@ func (r *Repository) AssignNextVoucher(ctx context.Context, voucherRequest *Vouc
 	return result, nil
 }
 
-func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*Voucher, error) {
+func (r *Repository) GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]*Voucher, error) {
 	var result []*Voucher
 
 	tx := r.db.WithContext(ctx).
-		Where("user_id = ?", userId).
+		Where("user_id = ?", userID).
 		Find(&result)
 
 	if tx.Error != nil {

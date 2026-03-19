@@ -67,10 +67,10 @@ func (s *Service) AssignNextVoucher(ctx context.Context, voucherRequest *Voucher
 	return voucherResponse, nil
 }
 
-func (s *Service) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*VoucherResponse, error) {
+func (s *Service) GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]*VoucherResponse, error) {
 	var voucherResponse []*VoucherResponse
 
-	vouchers, err := s.repo.GetAllByUserId(ctx, userId)
+	vouchers, err := s.repo.GetAllByUserID(ctx, userID)
 
 	if err != nil {
 		return nil, err

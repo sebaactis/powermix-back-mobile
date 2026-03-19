@@ -35,7 +35,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.service.Create(r.Context(), &req)
+	user, err := h.service.Create(r.Context(), &req)
 
 	if err != nil {
 		if fields, ok := validations.AsValidationError(err); ok {
@@ -52,20 +52,20 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteSuccess(w, http.StatusCreated, ToResponse(u))
+	utils.WriteSuccess(w, http.StatusCreated, ToResponse(user))
 }
 
 func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 
-	u, err := h.service.GetByID(r.Context(), uuid.MustParse(idStr))
+	user, err := h.service.GetByID(r.Context(), uuid.MustParse(idStr))
 
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "Id inválido", map[string]string{"error": err.Error()})
 		return
 	}
 
-	utils.WriteSuccess(w, http.StatusOK, ToResponse(u))
+	utils.WriteSuccess(w, http.StatusOK, ToResponse(user))
 }
 
 func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {

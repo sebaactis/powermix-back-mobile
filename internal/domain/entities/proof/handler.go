@@ -23,9 +23,9 @@ func NewHTTPHandler(service *Service) *HTTPHandler {
 func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req ProofRequest
 
-	userId, ok := middlewares.UserIDFromContext(r.Context())
+	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
 		return
 	}
 
@@ -34,7 +34,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.UserID = userId
+	req.UserID = userID
 
 	proof, err := h.service.Create(r.Context(), &req)
 	if err != nil {
@@ -48,9 +48,9 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 	var req ProofOthersRequest
 
-	userId, ok := middlewares.UserIDFromContext(r.Context())
+	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.UserID = userId
+	req.UserID = userID
 
 	proof, err := h.service.CreateFromOthers(r.Context(), &req)
 	if err != nil {
@@ -70,14 +70,14 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 	utils.WriteSuccess(w, http.StatusCreated, proof)
 }
 
-func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
-	userId, ok := middlewares.UserIDFromContext(r.Context())
+func (h *HTTPHandler) GetAllByUserID(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
 		return
 	}
 
-	proofs, err := h.service.GetAllByUserId(r.Context(), userId)
+	proofs, err := h.service.GetAllByUserID(r.Context(), userID)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "No se pudieron recuperar los comprobantes del usuario", nil)
 		return
@@ -86,11 +86,11 @@ func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
 	utils.WriteSuccess(w, http.StatusOK, proofs)
 }
 
-func (h *HTTPHandler) GetAllByUserIdPaginated(w http.ResponseWriter, r *http.Request) {
-	userId, ok := middlewares.UserIDFromContext(r.Context())
+func (h *HTTPHandler) GetAllByUserIDPaginated(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middlewares.UserIDFromContext(r.Context())
 
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
 		return
 	}
 
@@ -143,7 +143,7 @@ func (h *HTTPHandler) GetAllByUserIdPaginated(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	proofsPage, err := h.service.GetAllByUserIdPaginated(r.Context(), userId, page, pageSize, filters)
+	proofsPage, err := h.service.GetAllByUserIDPaginated(r.Context(), userID, page, pageSize, filters)
 
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "No se pudieron recuperar los comprobantes del usuario", nil)
@@ -153,14 +153,14 @@ func (h *HTTPHandler) GetAllByUserIdPaginated(w http.ResponseWriter, r *http.Req
 	utils.WriteSuccess(w, http.StatusOK, proofsPage)
 }
 
-func (h *HTTPHandler) GetLastThreeByUserId(w http.ResponseWriter, r *http.Request) {
-	userId, ok := middlewares.UserIDFromContext(r.Context())
+func (h *HTTPHandler) GetLastThreeByUserID(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
 		return
 	}
 
-	proofs, err := h.service.GetLastThreeByUserId(r.Context(), userId)
+	proofs, err := h.service.GetLastThreeByUserID(r.Context(), userID)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "No se pudieron recuperar los comprobantes del usuario", nil)
 		return
@@ -169,7 +169,7 @@ func (h *HTTPHandler) GetLastThreeByUserId(w http.ResponseWriter, r *http.Reques
 	utils.WriteSuccess(w, http.StatusOK, proofs)
 }
 
-func (h *HTTPHandler) GetById(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	if id == "" {
@@ -177,7 +177,7 @@ func (h *HTTPHandler) GetById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proof, err := h.service.GetById(r.Context(), id)
+	proof, err := h.service.GetByID(r.Context(), id)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el comprobante de pago", nil)
 		return

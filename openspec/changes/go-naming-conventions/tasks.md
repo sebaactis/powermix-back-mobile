@@ -197,101 +197,101 @@ Rename repository methods, service signatures, and handler methods across all en
 ### Repository Method Renames (All Entities)
 
 **User Repository**
-- [ ] 5.1: Rename method `GetById` → `GetByID` in `internal/domain/entities/user/repository.go`
-- [ ] 5.2: Rename method `GetAllByUserId` → `GetAllByUserID` (if exists)
-- [ ] 5.3: Update parameter name `userId` → `userID` in user repository methods
+- [x] 5.1: Rename method `GetById` → `GetByID` in `internal/domain/entities/user/repository.go`
+- [x] 5.2: Rename method `GetAllByUserId` → `GetAllByUserID` (if exists)
+- [x] 5.3: Update parameter name `userId` → `userID` in user repository methods
 
 **Proof Repository**
-- [ ] 5.4: Rename method `GetById` → `GetByID` in `internal/domain/entities/proof/repository.go`
-- [ ] 5.5: Rename method `GetAllByUserId` → `GetAllByUserID`
-- [ ] 5.6: Rename method `GetAllByUserIdPaginated` → `GetAllByUserIDPaginated` (if exists)
-- [ ] 5.7: Rename method `GetLastThreeByUserId` → `GetLastThreeByUserID` (if exists)
-- [ ] 5.8: Update parameter name `userId` → `userID` in proof repository methods
+- [x] 5.4: Rename method `GetById` → `GetByID` in `internal/domain/entities/proof/repository.go`
+- [x] 5.5: Rename method `GetAllByUserId` → `GetAllByUserID`
+- [x] 5.6: Rename method `GetAllByUserIdPaginated` → `GetAllByUserIDPaginated` (if exists)
+- [x] 5.7: Rename method `GetLastThreeByUserId` → `GetLastThreeByUserID` (if exists)
+- [x] 5.8: Update parameter name `userId` → `userID` in proof repository methods
 
 **Voucher Repository**
-- [ ] 5.9: Rename methods matching user/proof pattern in `internal/domain/entities/voucher/repository.go`
-- [ ] 5.10: Update parameter names `userId` → `userID`
+- [x] 5.9: Rename methods matching user/proof pattern in `internal/domain/entities/voucher/repository.go`
+- [x] 5.10: Update parameter names `userId` → `userID`
 
 **Token Repository**
-- [ ] 5.11: Rename methods matching user/proof pattern in `internal/domain/entities/token/repository.go`
-- [ ] 5.12: Update parameter names `userId` → `userID`
+- [x] 5.11: Rename methods matching user/proof pattern in `internal/domain/entities/token/repository.go`
+- [x] 5.12: Update parameter names `userId` → `userID`
 
 ### Service Layer Updates (All Entities)
 
 **User Service**
-- [ ] 5.13: Update all repository method calls in `internal/domain/entities/user/service.go` to use new method names
-- [ ] 5.14: Rename function parameters from `userId` → `userID` in user service (if applicable)
-- [ ] 5.15: Update local variable names using `userID` pattern
+- [x] 5.13: Update all repository method calls in `internal/domain/entities/user/service.go` to use new method names
+- [x] 5.14: Rename function parameters from `userId` → `userID` in user service (if applicable)
+- [x] 5.15: Update local variable names using `userID` pattern
 
 **Proof Service**
-- [ ] 5.16: Update all repository method calls in `internal/domain/entities/proof/service.go` to use new names
-- [ ] 5.17: Rename function parameters from `userId` → `userID`
-- [ ] 5.18: Update local variable names using `userID` pattern
+- [x] 5.16: Update all repository method calls in `internal/domain/entities/proof/service.go` to use new names
+- [x] 5.17: Rename function parameters from `userId` → `userID`
+- [x] 5.18: Update local variable names using `userID` pattern
 
 **Voucher Service**
-- [ ] 5.19: Update all repository method calls in `internal/domain/entities/voucher/service.go`
-- [ ] 5.20: Rename parameters/variables to use `userID` pattern
+- [x] 5.19: Update all repository method calls in `internal/domain/entities/voucher/service.go`
+- [x] 5.20: Rename parameters/variables to use `userID` pattern
 
 **Token Service**
-- [ ] 5.21: Update all repository method calls in `internal/domain/entities/token/service.go`
-- [ ] 5.22: Rename parameters/variables to use `userID` pattern
+- [x] 5.21: Update all repository method calls in `internal/domain/entities/token/service.go`
+- [x] 5.22: Rename parameters/variables to use `userID` pattern
 
 ### Handler Layer Updates (All Entities)
 
 **User Handler**
-- [ ] 5.23: Update all service method calls in `internal/domain/entities/user/handler.go` to use renamed methods
-- [ ] 5.24: Rename handler context variables (e.g., `u` → `user` where unclear; `s` → `service`)
-- [ ] 5.25: Update query parameter names `userId` → `userID` in HTTP handlers
-- [ ] 5.26: Update handler method names if they follow old pattern (e.g., `GetById` → `GetByID`)
+- [x] 5.23: Update all service method calls in `internal/domain/entities/user/handler.go` to use renamed methods
+- [x] 5.24: Rename handler context variables (e.g., `u` → `user` where unclear; `s` → `service`)
+- [x] 5.25: Update query parameter names `userId` → `userID` in HTTP handlers
+- [x] 5.26: Update handler method names if they follow old pattern (e.g., `GetById` → `GetByID`)
 
 **Proof Handler**
-- [ ] 5.27: Update all service method calls in `internal/domain/entities/proof/handler.go`
-- [ ] 5.28: Rename handler context variables for clarity
-- [ ] 5.29: Update query parameter names and HTTP method signatures
-- [ ] 5.30: Rename handler methods to use `GetByID`, `GetAllByUserID` patterns
+- [x] 5.27: Update all service method calls in `internal/domain/entities/proof/handler.go`
+- [x] 5.28: Rename handler context variables for clarity
+- [x] 5.29: Update query parameter names and HTTP method signatures
+- [x] 5.30: Rename handler methods to use `GetByID`, `GetAllByUserID` patterns
 
 **Voucher Handler**
-- [ ] 5.31: Update all service method calls in `internal/domain/entities/voucher/handler.go`
-- [ ] 5.32: Rename handler context variables and method names
+- [x] 5.31: Update all service method calls in `internal/domain/entities/voucher/handler.go`
+- [x] 5.32: Rename handler context variables and method names
 
 **Token Handler**
-- [ ] 5.33: Update all service method calls in `internal/domain/entities/token/handler.go`
-- [ ] 5.34: Rename handler context variables and method names
+- [x] 5.33: Update all service method calls in `internal/domain/entities/token/handler.go`
+- [x] 5.34: Rename handler context variables and method names
 
 ### Test File Updates (All Entities)
 
 **User Tests**
-- [ ] 5.35: Update `internal/domain/entities/user/*_test.go` — all repository method calls
-- [ ] 5.36: Update test assertions for parameter names (`userId` → `userID`)
+- [x] 5.35: Update `internal/domain/entities/user/*_test.go` — all repository method calls
+- [x] 5.36: Update test assertions for parameter names (`userId` → `userID`)
 
 **Proof Tests**
-- [ ] 5.37: Update `internal/domain/entities/proof/*_test.go` — all repository/service method calls
-- [ ] 5.38: Update test assertions for parameter names
+- [x] 5.37: Update `internal/domain/entities/proof/*_test.go` — all repository/service method calls
+- [x] 5.38: Update test assertions for parameter names
 
 **Voucher Tests**
-- [ ] 5.39: Update `internal/domain/entities/voucher/*_test.go` — all method calls and parameters
+- [x] 5.39: Update `internal/domain/entities/voucher/*_test.go` — all method calls and parameters
 
 **Token Tests**
-- [ ] 5.40: Update `internal/domain/entities/token/*_test.go` — all method calls and parameters
+- [x] 5.40: Update `internal/domain/entities/token/*_test.go` — all method calls and parameters
 
 ### Global Cross-Entity Updates
 
 **Route Handlers/Middleware**
-- [ ] 5.41: Search codebase for route definitions or middleware that may call renamed handler methods
-- [ ] 5.42: Update any route-level references to old method names
+- [x] 5.41: Search codebase for route definitions or middleware that may call renamed handler methods
+- [x] 5.42: Update any route-level references to old method names
 
 **Other Layer Integration**
-- [ ] 5.43: Search `internal/` for any other references to old repository method names or `userId` parameters
-- [ ] 5.44: Update cross-layer calls not covered by entity-specific tasks
+- [x] 5.43: Search `internal/` for any other references to old repository method names or `userId` parameters
+- [x] 5.44: Update cross-layer calls not covered by entity-specific tasks
 
 ### Verification
 
-- [ ] 5.45: Build verification: `go build ./...` (zero errors)
-- [ ] 5.46: Full test verification: `go test ./... -v` (all tests pass, including integration tests)
-- [ ] 5.47: Grep verification: `grep -r "GetById\|GetAllByUserId\|GetLastThreeByUserId" internal/` (should return zero)
-- [ ] 5.48: Parameter name verification: `grep -r "\busterId\b" internal/` (should return zero occurrences of old pattern)
-- [ ] 5.49: Manual diff review: Check that all renaming is consistent and complete
-- [ ] 5.50: Verify no breaking changes to method signatures (parameters, return types)
+- [x] 5.45: Build verification: `go build ./...` (zero errors)
+- [x] 5.46: Full test verification: `go test ./... -v` (all tests pass, including integration tests)
+- [x] 5.47: Grep verification: `grep -r "GetById\|GetAllByUserId\|GetLastThreeByUserId" internal/` (should return zero)
+- [x] 5.48: Parameter name verification: `grep -r "\busterId\b" internal/` (should return zero occurrences of old pattern)
+- [x] 5.49: Manual diff review: Check that all renaming is consistent and complete
+- [x] 5.50: Verify no breaking changes to method signatures (parameters, return types)
 
 ### Verification Steps
 ```bash

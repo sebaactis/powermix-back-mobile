@@ -36,7 +36,7 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 		return nil, &validations.ValidationError{Fields: fields}
 	}
 
-	proofExistsValidate, err := s.GetById(ctx, proof.IDMP)
+	proofExistsValidate, err := s.GetByID(ctx, proof.IDMP)
 
 	if err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 
 	idMP := fmt.Sprintf("%d", result.PaymentID)
 
-	proofExistsValidate, err := s.GetById(ctx, idMP)
+	proofExistsValidate, err := s.GetByID(ctx, idMP)
 	if err != nil {
 		return nil, err
 	}
@@ -256,11 +256,11 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 	}, nil
 }
 
-func (s *Service) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*ProofResponse, error) {
+func (s *Service) GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]*ProofResponse, error) {
 
 	var proofsResponse []*ProofResponse
 
-	proofs, err := s.repo.GetAllByUserId(ctx, userId)
+	proofs, err := s.repo.GetAllByUserID(ctx, userID)
 
 	if err != nil {
 		return nil, err
@@ -287,8 +287,8 @@ func (s *Service) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*Proo
 
 }
 
-func (s *Service) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID, page int, pageSize int, filters ProofFilters) (*PaginatedProofResponse, error) {
-	proofs, total, err := s.repo.GetAllByUserIdPaginated(ctx, userId, page, pageSize, filters)
+func (s *Service) GetAllByUserIDPaginated(ctx context.Context, userID uuid.UUID, page int, pageSize int, filters ProofFilters) (*PaginatedProofResponse, error) {
+	proofs, total, err := s.repo.GetAllByUserIDPaginated(ctx, userID, page, pageSize, filters)
 
 	if err != nil {
 		return nil, err
@@ -324,11 +324,11 @@ func (s *Service) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID,
 	return resp, nil
 }
 
-func (s *Service) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID) ([]*ProofResponse, error) {
+func (s *Service) GetLastThreeByUserID(ctx context.Context, userID uuid.UUID) ([]*ProofResponse, error) {
 
 	var proofsResponse []*ProofResponse
 
-	proofs, err := s.repo.GetLastThreeByUserId(ctx, userId)
+	proofs, err := s.repo.GetLastThreeByUserID(ctx, userID)
 
 	if err != nil {
 		return nil, err
@@ -355,12 +355,12 @@ func (s *Service) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID) ([
 
 }
 
-func (s *Service) GetById(ctx context.Context, id string) (*ProofResponse, error) {
+func (s *Service) GetByID(ctx context.Context, id string) (*ProofResponse, error) {
 	if id == "" {
 		return nil, errors.New("id es requerido")
 	}
 
-	proof, err := s.repo.GetById(ctx, id)
+	proof, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}

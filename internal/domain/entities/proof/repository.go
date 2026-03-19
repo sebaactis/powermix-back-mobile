@@ -37,9 +37,9 @@ func (r *Repository) Create(ctx context.Context, proof *Proof) (*Proof, error) {
 	return proof, nil
 }
 
-func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*Proof, error) {
+func (r *Repository) GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]*Proof, error) {
 	var proofs []*Proof
-	result := r.db.WithContext(ctx).Where("user_id = ?", userId).Find(&proofs)
+	result := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&proofs)
 
 	if result.Error != nil {
 		return nil, result.Error
@@ -48,7 +48,7 @@ func (r *Repository) GetAllByUserId(ctx context.Context, userId uuid.UUID) ([]*P
 	return proofs, nil
 }
 
-func (r *Repository) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UUID, page int, pageSize int, filters ProofFilters) ([]*Proof, int64, error) {
+func (r *Repository) GetAllByUserIDPaginated(ctx context.Context, userID uuid.UUID, page int, pageSize int, filters ProofFilters) ([]*Proof, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -59,7 +59,7 @@ func (r *Repository) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UU
 
 	var total int64
 
-	baseQuery := r.db.WithContext(ctx).Model(&Proof{}).Where("user_id = ?", userId)
+	baseQuery := r.db.WithContext(ctx).Model(&Proof{}).Where("user_id = ?", userID)
 
 	// FILTROS
 	if filters.IDMP != "" {
@@ -98,11 +98,11 @@ func (r *Repository) GetAllByUserIdPaginated(ctx context.Context, userId uuid.UU
 	return proofs, total, nil
 }
 
-func (r *Repository) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID) ([]*Proof, error) {
+func (r *Repository) GetLastThreeByUserID(ctx context.Context, userID uuid.UUID) ([]*Proof, error) {
 	var proofs []*Proof
 
 	result := r.db.WithContext(ctx).
-		Where("user_id = ?", userId).
+		Where("user_id = ?", userID).
 		Order("proof_date DESC").
 		Limit(3).
 		Find(&proofs)
@@ -114,7 +114,7 @@ func (r *Repository) GetLastThreeByUserId(ctx context.Context, userId uuid.UUID)
 	return proofs, nil
 }
 
-func (r *Repository) GetById(ctx context.Context, id string) (*Proof, error) {
+func (r *Repository) GetByID(ctx context.Context, id string) (*Proof, error) {
 	var proof Proof
 
 	err := r.db.WithContext(ctx).First(&proof, "id_mp = ?", id).Error

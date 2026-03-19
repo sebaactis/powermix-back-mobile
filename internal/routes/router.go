@@ -54,15 +54,15 @@ func Router(d Deps) *chi.Mux {
 			pr.Post("/user/contact", d.UserHandler.SendEmailContact)
 
 			// Proof
-			pr.Get("/proofs/me", d.ProofHandler.GetAllByUserId)
-			pr.Get("/proofs/me/paginated", d.ProofHandler.GetAllByUserIdPaginated)
-			pr.Get("/proofs/me/last3", d.ProofHandler.GetLastThreeByUserId)
-			pr.Get("/proofs/me/{id}", d.ProofHandler.GetById)
+			pr.Get("/proofs/me", d.ProofHandler.GetAllByUserID)
+			pr.Get("/proofs/me/paginated", d.ProofHandler.GetAllByUserIDPaginated)
+			pr.Get("/proofs/me/last3", d.ProofHandler.GetLastThreeByUserID)
+			pr.Get("/proofs/me/{id}", d.ProofHandler.GetByID)
 			pr.Post("/proof", d.ProofHandler.Create)
 			pr.Post("/proof/others", d.ProofHandler.CreateFromOthers)
 
 			// Voucher
-			pr.Get("/voucher/me", d.VoucherHandler.GetAllByUserId)
+			pr.Get("/voucher/me", d.VoucherHandler.GetAllByUserID)
 			pr.Get("/voucher/available", d.VoucherHandler.GetAvailableCount)
 			pr.Delete("/voucher/{id}", d.VoucherHandler.DeleteVoucher)
 

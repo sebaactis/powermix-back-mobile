@@ -39,18 +39,18 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 	utils.WriteSuccess(w, http.StatusCreated, v)
 }
 
-func (h *HTTPHandler) GetAllByUserId(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) GetAllByUserID(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	userId, ok := middlewares.UserIDFromContext(ctx)
+	userID, ok := middlewares.UserIDFromContext(ctx)
 
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
 		return
 	}
 
-	vouchers, err := h.service.GetAllByUserId(ctx, userId)
+	vouchers, err := h.service.GetAllByUserID(ctx, userID)
 
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "Error al recuperar los vouchers", err)
@@ -76,7 +76,7 @@ func (h *HTTPHandler) DeleteVoucher(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userId del contexto", nil)
+		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
 		return
 	}
 
