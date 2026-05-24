@@ -4,11 +4,13 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/prode"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/voucher"
 	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
+	"github.com/sebaactis/powermix-back-mobile/internal/platform/config"
 	"github.com/sebaactis/powermix-back-mobile/internal/security/auth"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 )
@@ -19,6 +21,8 @@ type Deps struct {
 	VoucherHandler *voucher.HTTPHandler
 	TokenHandler   *token.HTTPHandler
 	AuthHandler    *auth.HTTPHandler
+	ProdeHandler   *prode.HTTPHandler
+	Config         config.Config
 	Validator      *validations.Validator
 	RateLimiter    *middlewares.RateLimiter
 	AuthMiddleware *middlewares.AuthMiddleware
@@ -66,7 +70,27 @@ func Router(d Deps) *chi.Mux {
 			pr.Get("/voucher/available", d.VoucherHandler.GetAvailableCount)
 			pr.Delete("/voucher/{id}", d.VoucherHandler.DeleteVoucher)
 
+			// PRODE
+			if d.Config.IsProdeEnabled() {
+				pr.Get("/prode/matches", d.ProdeHandler.ListMatches)
+				pr.Get("/prode/matches/{matchID}", d.ProdeHandler.GetMatch)
+				pr.Put("/prode/matches/{matchID}/prediction", d.ProdeHandler.CreateOrUpdatePrediction)
+				pr.Get("/prode/predictions/me", d.ProdeHandler.GetMyPredictions)
+			}
 		})
+
+		// PRODE Admin — protegido por maintenance key
+		if d.Config.IsProdeEnabled() {
+			r.Group(func(ar chi.Router) {
+				ar.Use(middlewares.MaintenanceKey(d.Config))
+
+				ar.Post("/prode/admin/matches", d.ProdeHandler.AdminCreateMatch)
+				ar.Patch("/prode/admin/matches/{matchID}", d.ProdeHandler.AdminUpdateMatch)
+				ar.Put("/prode/admin/matches/{matchID}/result", d.ProdeHandler.AdminRecordResult)
+				ar.Post("/prode/admin/matches/{matchID}/settle", d.ProdeHandler.AdminSettleMatch)
+				ar.Post("/prode/admin/rewards/retry", d.ProdeHandler.AdminRetryPendingRewards)
+			})
+		}
 	})
 
 	return r

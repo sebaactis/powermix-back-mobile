@@ -1,3 +1,10 @@
 .env
 # Engram AI agent memory
 .engram/
+# Local Pi runtime state
+.atl/
+.pi/
+.pi-lens/
+.vscode/
+
+start-dev.sh

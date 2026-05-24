@@ -6,4 +6,5 @@ type Mailer interface {
 	SendResetPasswordEmail(ctx context.Context, toEmail, resetURL string) error
 	SendVoucherEmail(ctx context.Context, toEmail, voucherUrl string) error
 	SendEmailContact(ctx context.Context, contactRequest *ContactRequest) error
+	SendProdeAdminNotification(ctx context.Context, toEmail, opponent, stage string, pendingCount int) error
 }

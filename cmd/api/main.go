@@ -13,6 +13,7 @@ import (
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/coffeeji"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/mercadopago"
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/prode"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
@@ -87,6 +88,23 @@ func main() {
 	// Auth DI
 	authHandler := auth.NewHTTPHandler(userService, tokenService, jwt, validator, mailerClient)
 
+	// Prode DI
+	prodeRepository := prode.NewRepository(db)
+	prodeService := prode.NewService(prodeRepository, voucherRepository, userRepository, mailerClient, cfg.ProdeAdminEmails)
+	prodeHandler := prode.NewHTTPHandler(prodeService)
+
+	if cfg.IsProdeEnabled() {
+		log.Printf("PRODE habilitado — rutas activas en /api/v1/prode/*")
+		if cfg.IsMaintenanceEnabled() {
+			log.Printf("PRODE mantenimiento habilitado — rutas admin protegidas con X-Prode-Admin-Key")
+		}
+		if len(cfg.ProdeAdminEmails) > 0 {
+			log.Printf("PRODE notificaciones admin: %v", cfg.ProdeAdminEmails)
+		}
+	} else {
+		log.Printf("PRODE deshabilitado — las rutas /api/v1/prode/* no están registradas")
+	}
+
 	// Middlewares
 	authMiddleware := middlewares.NewAuthMiddleware(jwt)
 
@@ -96,6 +114,8 @@ func main() {
 		ProofHandler:   proofHandler,
 		VoucherHandler: voucherHandler,
 		AuthHandler:    authHandler,
+		ProdeHandler:   prodeHandler,
+		Config:         cfg,
 		AuthMiddleware: authMiddleware,
 		RateLimiter:    rateLimiter,
 		Validator:      validator,

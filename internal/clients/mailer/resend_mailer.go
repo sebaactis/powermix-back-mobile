@@ -88,6 +88,29 @@ func (m *ResendMailer) SendVoucherEmail(ctx context.Context, toEmail, voucherUrl
 	return err
 }
 
+func (m *ResendMailer) SendProdeAdminNotification(ctx context.Context, toEmail, opponent, stage string, pendingCount int) error {
+	subject := fmt.Sprintf("[PRODE] Premios pendientes — Argentina vs %s", opponent)
+	html := fmt.Sprintf(`
+		<div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+			<h2>Premios PRODE pendientes</h2>
+			<p>Hay <strong>%d</strong> predicciones correctas que no pudieron ser premiadas por falta de vouchers disponibles.</p>
+			<p><strong>Partido:</strong> Argentina vs %s</p>
+			<p><strong>Instancia:</strong> %s</p>
+			<p>Ingresá al panel admin de PRODE para cargar más vouchers y ejecutar el reintento de premios pendientes.</p>
+		</div>
+	`, pendingCount, opponent, stage)
+
+	params := &resend.SendEmailRequest{
+		From:    "no-reply@powermixstation.com.ar",
+		To:      []string{toEmail},
+		Subject: subject,
+		Html:    html,
+	}
+
+	_, err := m.client.Emails.Send(params)
+	return err
+}
+
 func (m *ResendMailer) SendEmailContact(ctx context.Context, contactRequest *ContactRequest) error {
 	esc := func(s string) string {
 		replacer := strings.NewReplacer(

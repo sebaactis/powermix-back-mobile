@@ -4,6 +4,22 @@ import (
 	"testing"
 )
 
+// isEmptyConfig checks whether a Config is the zero value.
+func isEmptyConfig(cfg Config) bool {
+	return cfg.HTTPAddr == "" &&
+		cfg.Driver == "" &&
+		cfg.DSN == "" &&
+		cfg.MercagoPagoToken == "" &&
+		cfg.CoffejiKey == "" &&
+		cfg.CoffejiSecret == "" &&
+		cfg.ResendKey == "" &&
+		cfg.HashToken == "" &&
+		!cfg.ProdeEnabled &&
+		!cfg.ProdeMaintenanceEnabled &&
+		cfg.ProdeAdminAPIKey == "" &&
+		len(cfg.ProdeAdminEmails) == 0
+}
+
 // Test 4.2: Verify that config.Load() returns error when required env vars are missing
 func TestConfigLoad(t *testing.T) {
 	t.Run("Load returns error when DSN is not set", func(t *testing.T) {
@@ -23,7 +39,7 @@ func TestConfigLoad(t *testing.T) {
 			t.Errorf("Expected error when DSN is not set, got nil")
 		}
 
-		if cfg != (Config{}) {
+		if !isEmptyConfig(cfg) {
 			t.Errorf("Expected empty Config when error occurs, got %+v", cfg)
 		}
 	})
@@ -45,7 +61,7 @@ func TestConfigLoad(t *testing.T) {
 			t.Errorf("Expected error when JWT_REFRESH_HASH is not set, got nil")
 		}
 
-		if cfg != (Config{}) {
+		if !isEmptyConfig(cfg) {
 			t.Errorf("Expected empty Config when error occurs, got %+v", cfg)
 		}
 	})
@@ -67,7 +83,7 @@ func TestConfigLoad(t *testing.T) {
 			t.Errorf("Expected error when HTTP_ADDR is not set, got nil")
 		}
 
-		if cfg != (Config{}) {
+		if !isEmptyConfig(cfg) {
 			t.Errorf("Expected empty Config when error occurs, got %+v", cfg)
 		}
 	})
@@ -89,7 +105,7 @@ func TestConfigLoad(t *testing.T) {
 			t.Errorf("Expected no error when all vars are set, got %v", err)
 		}
 
-		if cfg == (Config{}) {
+		if isEmptyConfig(cfg) {
 			t.Errorf("Expected non-empty Config when load succeeds")
 		}
 
@@ -119,7 +135,7 @@ func TestConfigLoad(t *testing.T) {
 			t.Errorf("Expected error when RESEND_API_KEY is not set, got nil")
 		}
 
-		if cfg != (Config{}) {
+		if !isEmptyConfig(cfg) {
 			t.Errorf("Expected empty Config when error occurs")
 		}
 	})
@@ -143,7 +159,7 @@ func TestConfigErrorMessages(t *testing.T) {
 			t.Fatalf("Expected error when DSN is missing")
 		}
 
-		if cfg != (Config{}) {
+		if !isEmptyConfig(cfg) {
 			t.Errorf("Expected empty Config when error occurs")
 		}
 
