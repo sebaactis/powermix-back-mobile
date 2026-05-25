@@ -85,54 +85,53 @@ func (r *Repository) Create(ctx context.Context, user *User) error {
 }
 
 func (r *Repository) CreateWithOAuth(ctx context.Context, info *oauth.OAuthUserInfo) (*User, error) {
-	var newUser User
+	// Primero buscar si el usuario ya existe por email
+	var existing User
+	err := r.db.WithContext(ctx).Where("email = ?", info.Email).First(&existing).Error
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-
-		newUser = User{
-			Name:          info.Name,
-			Email:         info.Email,
-			OAuthProvider: info.Provider,
-			OAuthID:       info.ProviderID,
-			StampsCounter: 0,
-		}
-
-		insertErr := tx.Create(&newUser).Error
-
-		if insertErr != nil {
-
-			if isDuplicateKeyError(insertErr) {
-
-				if err := tx.Where("email = ?", info.Email).First(&newUser).Error; err != nil {
-					return err
-				}
-
-				if newUser.OAuthProvider != "" {
-					log.Printf("ℹ️ Usuario ya existe con OAuth: id=%s email=%s provider=%s", newUser.ID, newUser.Email, newUser.OAuthProvider)
-					return nil
-				}
-
-				newUser.OAuthProvider = info.Provider
-				newUser.OAuthID = info.ProviderID
-
-				if err := tx.Save(&newUser).Error; err != nil {
-					return err
-				}
-
-				log.Printf("🔁 Usuario existente actualizado con OAuth: id=%s email=%s", newUser.ID, newUser.Email)
-				return nil
+	if err == nil {
+		// Usuario encontrado: actualizar OAuth si es primera vez que vincula
+		if existing.OAuthProvider == "" {
+			existing.OAuthProvider = info.Provider
+			existing.OAuthID = info.ProviderID
+			if saveErr := r.db.WithContext(ctx).Save(&existing).Error; saveErr != nil {
+				return nil, saveErr
 			}
-			return insertErr
+			log.Printf("Usuario existente vinculado con OAuth: id=%s email=%s", existing.ID, existing.Email)
+		} else {
+			log.Printf("Usuario ya existe con OAuth: id=%s email=%s provider=%s", existing.ID, existing.Email, existing.OAuthProvider)
 		}
+		return &existing, nil
+	}
 
-		log.Printf("✅ Usuario nuevo con OAuth creado: id=%s email=%s", newUser.ID, newUser.Email)
-		return nil
-	})
-
-	if err != nil {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
+	// No existe: crear nuevo usuario con OAuth
+	newUser := User{
+		Name:          info.Name,
+		Email:         info.Email,
+		OAuthProvider: info.Provider,
+		OAuthID:       info.ProviderID,
+		StampsCounter: 0,
+	}
+
+	if createErr := r.db.WithContext(ctx).Create(&newUser).Error; createErr != nil {
+		// Si hay race condition (otro request creó el mismo email justo ahora),
+		// reintentar buscando el usuario existente
+		if isDuplicateKeyError(createErr) {
+			var retry User
+			if retryErr := r.db.WithContext(ctx).Where("email = ?", info.Email).First(&retry).Error; retryErr != nil {
+				return nil, retryErr
+			}
+			log.Printf("Race condition OAuth resuelta: id=%s email=%s", retry.ID, retry.Email)
+			return &retry, nil
+		}
+		return nil, createErr
+	}
+
+	log.Printf("Usuario nuevo con OAuth creado: id=%s email=%s", newUser.ID, newUser.Email)
 	return &newUser, nil
 }
 
