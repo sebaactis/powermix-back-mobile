@@ -20,6 +20,11 @@ func isDuplicateKeyError(err error) bool {
 		return false
 	}
 
+	// GORM con TranslateError=true traduce violaciones unique a ErrDuplicatedKey
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+
 	// Intentar obtener el error específico de PostgreSQL
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
