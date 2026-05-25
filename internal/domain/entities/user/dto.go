@@ -44,7 +44,7 @@ func ToResponse(u *User) *UserResponse {
 		ID:            u.ID,
 		Name:          u.Name,
 		Email:         u.Email,
-		LockedUntil:   u.Locked_until.Truncate(time.Second).String(),
+		LockedUntil:   u.LockedUntil.Truncate(time.Second).String(),
 		LoginAttempts: u.LoginAttempt,
 		StampsCounter: u.StampsCounter,
 	}

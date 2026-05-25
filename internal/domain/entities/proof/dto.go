@@ -9,7 +9,7 @@ import (
 
 type ProofRequest struct {
 	UserID uuid.UUID `json:"user_id"`
-	ID_MP  string    `json:"proof_mp_id" validate:"required,max=255"`
+	IDMP   string    `json:"proof_mp_id" validate:"required,max=255"`
 }
 
 type ProofOthersRequest struct {
@@ -18,23 +18,23 @@ type ProofOthersRequest struct {
 	Time   string    `json:"time" validate:"required"` // "12:11" o "12.11"
 	Amount float64   `json:"amount" validate:"required,gt=0"`
 
-	Last4       *string `json:"last4,omitempty"`
-	DNI         *string `json:"dni,omitempty"`
+	Last4 *string `json:"last4,omitempty"`
+	DNI   *string `json:"dni,omitempty"`
 }
 
 type ProofResponse struct {
-	UserID            uuid.UUID           `json:"user_id"`
-	ID_MP             string              `json:"proof_mp_id"`
-	ProofDate         utils.FormattedTime `json:"proof_date"`
-	Date_Approved_MP  utils.FormattedTime `json:"date_approved_mp"`
-	Operation_Type_MP string              `json:"operation_type_mp"`
-	Status_MP         string              `json:"status_mp"`
-	Amount_MP         float64             `json:"amount_mp"`
-	Dni               *string             `json:"dni,omitempty"`
-	CardType          *string             `json:"card_type,omitempty"`
-	Last4Card         *string             `json:"last4_card,omitempty"`
-	ExternalID        *string             `json:"external_id,omitempty"`
-	ProductName       *string             `json:"product_name,omitempty"`
+	UserID          uuid.UUID           `json:"user_id"`
+	IDMP            string              `json:"proof_mp_id"`
+	ProofDate       utils.FormattedTime `json:"proof_date"`
+	DateApprovedMP  utils.FormattedTime `json:"date_approved_mp"`
+	OperationTypeMP string              `json:"operation_type_mp"`
+	StatusMP        string              `json:"status_mp"`
+	AmountMP        float64             `json:"amount_mp"`
+	Dni             *string             `json:"dni,omitempty"`
+	CardType        *string             `json:"card_type,omitempty"`
+	Last4Card       *string             `json:"last4_card,omitempty"`
+	ExternalID      *string             `json:"external_id,omitempty"`
+	ProductName     *string             `json:"product_name,omitempty"`
 }
 
 type PaginatedProofResponse struct {
@@ -46,7 +46,7 @@ type PaginatedProofResponse struct {
 }
 
 type ProofFilters struct {
-	ID_MP         string
+	IDMP          string
 	FromProofDate *time.Time
 	ToProofDate   *time.Time
 	MinAmount     *float64

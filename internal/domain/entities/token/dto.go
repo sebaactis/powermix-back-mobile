@@ -26,8 +26,8 @@ func ToResponse(t *Token) *TokenResponse {
 	return &TokenResponse{
 		TokenType:   t.TokenType,
 		Token:       t.TokenHash,
-		RevokedDate: t.Revoked_Date.Format("2006-01-02 15:04:05"),
-		IsRevoked:   t.Is_Revoked,
+		RevokedDate: t.RevokedDate.Format("2006-01-02 15:04:05"),
+		IsRevoked:   t.IsRevoked,
 	}
 }
 

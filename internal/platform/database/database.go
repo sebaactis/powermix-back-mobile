@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 
+	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/prode"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/proof"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/token"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/user"
@@ -32,5 +33,8 @@ func Migrate(db *gorm.DB) error {
 		&voucher.Voucher{},
 		&proof.Proof{},
 		&token.Token{},
+		&prode.ProdeMatch{},
+		&prode.ProdePrediction{},
+		&prode.ProdeReward{},
 	)
 }

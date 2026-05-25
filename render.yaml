@@ -22,3 +22,11 @@ services:
         sync: false
       - key: JWT_REFRESH_HASH
         sync: false
+      - key: PRODE_ENABLED
+        value: "true"
+      - key: PRODE_MAINTENANCE_ENABLED
+        value: "true"
+      - key: PRODE_ADMIN_API_KEY
+        sync: false
+      - key: PRODE_ADMIN_EMAILS
+        sync: false

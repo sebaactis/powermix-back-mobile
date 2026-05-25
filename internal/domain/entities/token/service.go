@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	jwtx "github.com/sebaactis/powermix-back-mobile/internal/security/jwt"
 	"github.com/sebaactis/powermix-back-mobile/internal/validations"
+	"gorm.io/gorm"
 )
 
 var ErrRefreshReuseDetected = errors.New("refresh_reuse_detected")
@@ -54,13 +55,13 @@ func (s *Service) CreateInitialRefreshToken(ctx context.Context, userID uuid.UUI
 	familyID := uuid.New()
 
 	t := &Token{
-		UserID:     userID,
-		TokenType:  string(jwtx.TokenTypeRefresh),
-		TokenHash:  HashToken(s.pepper, rawToken),
-		FamilyID:   familyID,
-		ParentID:   nil,
-		ExpiresAt:  expiresAt,
-		Is_Revoked: false,
+		UserID:    userID,
+		TokenType: string(jwtx.TokenTypeRefresh),
+		TokenHash: HashToken(s.pepper, rawToken),
+		FamilyID:  familyID,
+		ParentID:  nil,
+		ExpiresAt: expiresAt,
+		IsRevoked: false,
 	}
 
 	return s.repository.Create(ctx, t)
@@ -93,7 +94,7 @@ func (s *Service) RevokeToken(ctx context.Context, token string) error {
 
 	now := time.Now()
 
-	if tokenCheck.Is_Revoked {
+	if tokenCheck.IsRevoked {
 		return errors.New("el token no es válido o ya fue utilizado")
 	}
 
@@ -119,7 +120,7 @@ func (s *Service) RotateRefresh(ctx context.Context, rawRefresh string, now time
 			return ErrRefreshInvalid
 		}
 
-		if current.Is_Revoked {
+		if current.IsRevoked {
 			_ = sTx.repository.RevokeFamily(ctx, current.FamilyID, now, "reuse_detected")
 			return ErrRefreshReuseDetected
 		}
@@ -135,13 +136,13 @@ func (s *Service) RotateRefresh(ctx context.Context, rawRefresh string, now time
 		}
 
 		next := &Token{
-			UserID:     current.UserID,
-			TokenType:  string(jwtx.TokenTypeRefresh),
-			TokenHash:  HashToken(sTx.pepper, newRefresh),
-			FamilyID:   current.FamilyID,
-			ParentID:   &current.ID,
-			ExpiresAt:  refreshExp,
-			Is_Revoked: false,
+			UserID:    current.UserID,
+			TokenType: string(jwtx.TokenTypeRefresh),
+			TokenHash: HashToken(sTx.pepper, newRefresh),
+			FamilyID:  current.FamilyID,
+			ParentID:  &current.ID,
+			ExpiresAt: refreshExp,
+			IsRevoked: false,
 		}
 
 		created, err := sTx.repository.Create(ctx, next)
@@ -157,6 +158,14 @@ func (s *Service) RotateRefresh(ctx context.Context, rawRefresh string, now time
 	})
 
 	return
+}
+
+func (s *Service) WithTx(tx *gorm.DB) *Service {
+	return &Service{
+		repository: s.repository.WithTx(tx),
+		validator:  s.validator,
+		pepper:     s.pepper,
+	}
 }
 
 func (s *Service) WithRepo(repo *Repository) *Service {

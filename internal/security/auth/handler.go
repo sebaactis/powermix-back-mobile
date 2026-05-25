@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -50,7 +50,7 @@ func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.authenticateUser(r.Context(), req)
 	if err != nil {
-		h.handleLoginError(w, r.Context(), err, user)
+		h.handleLoginError(w, r.Context(), err, user, req.Email)
 		return
 	}
 
@@ -75,7 +75,7 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 
 	userInfo, err := oauth.GetGoogleUserInfo(r.Context(), body.AccessToken)
 
-	log.Printf("🧪 Datos del usuario de Google: %+v\n", userInfo)
+	slog.Info("OAuth Google login", "email", userInfo.Email, "provider", userInfo.Provider)
 
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "Token de google invalido", map[string]string{"error": err.Error()})
@@ -219,12 +219,10 @@ func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Req
 	emailEscaped := url.QueryEscape(user.Email)
 	resetURL := fmt.Sprintf("https://powermixstation.com.ar/reset-password?token=%s&email=%s", tokenEscaped, emailEscaped)
 
-	fmt.Println(user.Email, resetURL)
-
 	if err := h.mailer.SendResetPasswordEmail(ctx, user.Email, resetURL); err != nil {
 		genericResponse()
 
-		fmt.Println("HUBO UN ERROR PARA MANDAR EL MAIL")
+		slog.Error("error al enviar email de recovery", "email", user.Email, "error", err)
 		return
 	}
 
@@ -240,8 +238,7 @@ func (h *HTTPHandler) UnlockUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.users.UnlockUser(r.Context(), req.UserId)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode("User unlocked")
+	utils.WriteSuccess(w, http.StatusOK, map[string]any{"message": "User unlocked"})
 }
 
 func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Request) {
@@ -307,8 +304,20 @@ func (h *HTTPHandler) authenticateUser(ctx context.Context, req *LoginRequest) (
 		return nil, ErrInvalidCredentials
 	}
 
-	if user.Locked_until.After(time.Now()) {
+	if user.LockedUntil.After(time.Now()) {
 		return user, ErrAccountLocked
+	}
+
+	wasUnlocked, err := h.users.CheckAndUnlockIfExpired(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if wasUnlocked {
+		user, err = h.users.GetByID(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
@@ -358,21 +367,24 @@ func (h *HTTPHandler) generateTokenRecovery(ctx context.Context, user *user.User
 	return &recoveryToken, nil
 }
 
-func (h *HTTPHandler) handleLoginError(w http.ResponseWriter, ctx context.Context, err error, user *user.User) {
+func (h *HTTPHandler) handleLoginError(w http.ResponseWriter, ctx context.Context, err error, user *user.User, email string) {
 	switch err {
 	case ErrAccountLocked:
-		utils.WriteError(w, http.StatusLocked, "account temporarily locked", nil)
+		utils.WriteError(w, http.StatusLocked, "Cuenta temporalmente bloqueada", nil)
 
 	case ErrInvalidCredentials:
-		utils.WriteError(w, http.StatusUnauthorized, "invalid credentials", nil)
+		utils.WriteError(w, http.StatusUnauthorized, "Credenciales inválidas", nil)
 
-		// Incrementar intentos solo si el usuario existe
+		if user == nil {
+			user, _ = h.users.GetByEmail(ctx, email)
+		}
+
 		if user != nil {
 			h.users.IncrementLoginAttempt(ctx, user.ID)
 		}
 
 	default:
-		utils.WriteError(w, http.StatusInternalServerError, "internal error", nil)
+		utils.WriteError(w, http.StatusInternalServerError, "Error interno del servidor", nil)
 	}
 }
 

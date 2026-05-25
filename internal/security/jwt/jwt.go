@@ -24,17 +24,15 @@ type JWT struct {
 	ttlRefresh   time.Duration
 }
 
-func NewJWT() *JWT {
+func NewJWT() (*JWT, error) {
 	sec := os.Getenv("JWT_SECRET")
-
 	if sec == "" {
-		sec = "dev-secret"
+		return nil, errors.New("JWT_SECRET es requerido")
 	}
 
 	resetSec := os.Getenv("JWT_RECOVERY_PASS_SECRET")
-
 	if resetSec == "" {
-		resetSec = "dev-reset-secret"
+		return nil, errors.New("JWT_RECOVERY_PASS_SECRET es requerido")
 	}
 
 	ttlMin := 60
@@ -64,7 +62,8 @@ func NewJWT() *JWT {
 		reset_secret: []byte(resetSec),
 		ttlReset:     time.Duration(ttlMinReset) * time.Minute,
 		ttlNormal:    time.Duration(ttlMin) * time.Minute,
-		ttlRefresh:   time.Duration(ttlMinRefresh) * time.Minute}
+		ttlRefresh:   time.Duration(ttlMinRefresh) * time.Minute,
+	}, nil
 }
 
 func (j *JWT) Sign(userID uuid.UUID, email string, tokenType TokenType) (string, time.Time, error) {
