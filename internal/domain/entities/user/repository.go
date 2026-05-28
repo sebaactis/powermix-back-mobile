@@ -191,18 +191,18 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, updates map[strin
 func (r *Repository) UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) (*User, error) {
 	var user User
 
-	err := r.db.WithContext(ctx).Raw(`
+	result := r.db.WithContext(ctx).Raw(`
 		UPDATE users
 		SET password = ?, login_attempt = 0, locked_until = NULL
 		WHERE id = ?
 		RETURNING *
-	`, hashedPassword, id).Scan(&user).Error
+	`, hashedPassword, id).Scan(&user)
 
-	if err != nil {
-		return nil, err
+	if result.Error != nil {
+		return nil, result.Error
 	}
 
-	if r.db.RowsAffected == 0 {
+	if result.RowsAffected == 0 {
 		return nil, errors.New("Usuario no encontrado")
 	}
 
@@ -301,18 +301,6 @@ func (r *Repository) IncrementLoginAttempt(ctx context.Context, id uuid.UUID) (i
 	return newAttemptCount, nil
 }
 
-func (r *Repository) LockedUser(ctx context.Context, id uuid.UUID) error {
-	now := time.Now()
-
-	if err := r.db.WithContext(ctx).
-		Model(&User{}).
-		Where("id = ?", id).
-		Update("locked_until", now.Add(15*time.Minute)); err != nil {
-		return err.Error
-	}
-
-	return nil
-}
 
 func (r *Repository) UnlockUser(ctx context.Context, id uuid.UUID) error {
 

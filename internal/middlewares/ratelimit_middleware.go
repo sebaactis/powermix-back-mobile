@@ -22,10 +22,30 @@ type RateLimiter struct {
 }
 
 func NewRateLimiter(perWindow int, window time.Duration) *RateLimiter {
-	return &RateLimiter{
+	rl := &RateLimiter{
 		perWindow: perWindow,
 		window:    window,
 		buckets:   make(map[string]*bucket),
+	}
+	go rl.cleanupLoop()
+	return rl
+}
+
+// cleanupLoop barre el mapa cada 2 ventanas y elimina buckets expirados.
+// Se ejecuta en su propia goroutine hasta que el proceso termina.
+func (rl *RateLimiter) cleanupLoop() {
+	ticker := time.NewTicker(rl.window * 2)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		rl.mu.Lock()
+		now := time.Now()
+		for ip, b := range rl.buckets {
+			if now.Sub(b.windowFrom) >= rl.window {
+				delete(rl.buckets, ip)
+			}
+		}
+		rl.mu.Unlock()
 	}
 }
 

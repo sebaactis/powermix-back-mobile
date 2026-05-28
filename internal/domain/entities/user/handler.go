@@ -104,18 +104,15 @@ func (h *HTTPHandler) Update(w http.ResponseWriter, r *http.Request) {
 	userUpdate, err := h.service.Update(r.Context(), userID, req)
 
 	if err != nil {
-		if fields, ok := validations.AsValidationError(err); ok {
-			utils.WriteError(w, http.StatusBadRequest, "Error de validación", fields)
-			return
-		}
-
 		if errors.Is(err, ErrSameName) {
 			utils.WriteError(w, http.StatusBadRequest, "El nombre no puede ser igual al actual", nil)
 			return
 		}
-
-		utils.WriteError(w, http.StatusInternalServerError, "No se pudo actualizar el usuario",
-			map[string]string{"error": err.Error()})
+		if fields, ok := validations.AsValidationError(err); ok {
+			utils.WriteError(w, http.StatusBadRequest, "Error de validación", fields)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, "No se pudo actualizar el usuario", nil)
 		return
 	}
 

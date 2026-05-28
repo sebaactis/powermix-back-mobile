@@ -8,6 +8,7 @@ import (
 
 	"github.com/sebaactis/powermix-back-mobile/internal/middlewares"
 	"github.com/sebaactis/powermix-back-mobile/internal/utils"
+	"github.com/sebaactis/powermix-back-mobile/internal/validations"
 )
 
 type HTTPHandler struct {
@@ -38,7 +39,11 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	proof, err := h.service.Create(r.Context(), &req)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al agregar el comprobante de pago", map[string]string{"error": err.Error()})
+		if fields, ok := validations.AsValidationError(err); ok {
+			utils.WriteError(w, http.StatusBadRequest, "Error de validación", fields)
+			return
+		}
+		utils.WriteError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
@@ -63,7 +68,11 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 
 	proof, err := h.service.CreateFromOthers(r.Context(), &req)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al agregar el comprobante de pago (otros medios)", map[string]string{"error": err.Error()})
+		if fields, ok := validations.AsValidationError(err); ok {
+			utils.WriteError(w, http.StatusBadRequest, "Error de validación", fields)
+			return
+		}
+		utils.WriteError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 

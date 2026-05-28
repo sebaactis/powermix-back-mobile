@@ -41,16 +41,16 @@ func (s *Service) WithTx(tx *gorm.DB) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, user *UserCreate) (*User, error) {
+	if fields, ok := s.validator.ValidateStruct(user); !ok {
+		return nil, &validations.ValidationError{Fields: fields}
+	}
+
 	name := strings.TrimSpace(user.Name)
 	email := strings.TrimSpace(user.Email)
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(user.Password)), bcrypt.DefaultCost)
 
 	if err != nil {
 		return nil, err
-	}
-
-	if fields, ok := s.validator.ValidateStruct(user); !ok {
-		return nil, &validations.ValidationError{Fields: fields}
 	}
 
 	newUser := &User{
@@ -60,7 +60,7 @@ func (s *Service) Create(ctx context.Context, user *UserCreate) (*User, error) {
 	}
 
 	if err := s.repository.Create(ctx, newUser); err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
+		if errors.Is(err, ErrDuplicateEmail) {
 			return nil, ErrDuplicateEmail
 		}
 
