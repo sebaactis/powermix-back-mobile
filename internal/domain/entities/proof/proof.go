@@ -8,7 +8,7 @@ import (
 type Proof struct {
 	ID              uuid.UUID           `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	UserID          uuid.UUID           `gorm:"not null"`
-	IDMP            string              `json:"id_mp" gorm:"column:id_mp;unique,not null"`
+	IDMP            string              `json:"id_mp" gorm:"column:id_mp;unique;not null"`
 	DateApprovedMP  utils.FormattedTime `json:"date_approved_mp" gorm:"column:date_approved_mp;not null"`
 	OperationTypeMP string              `json:"operation_type_mp" gorm:"column:operation_type_mp;not null"`
 	StatusMP        string              `json:"status_mp" gorm:"column:status_mp;not null"`

@@ -32,7 +32,11 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 	v, err := h.service.AssignNextVoucher(r.Context(), &req)
 
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "Error en el servidor al intentar crear el voucher", map[string]string{"error": err.Error()})
+		if errors.Is(err, ErrNoAvailableVouchers) {
+			utils.WriteError(w, http.StatusConflict, "No hay vouchers disponibles en este momento", nil)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, "Error en el servidor al intentar crear el voucher", nil)
 		return
 	}
 
