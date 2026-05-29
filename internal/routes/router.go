@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -32,7 +33,12 @@ func Router(d Deps) *chi.Mux {
 
 	r := chi.NewRouter()
 
-	r.Use(middlewares.Logger(), middlewares.JSONContentType(), middlewares.Timeout(30*time.Second))
+	r.Use(
+		middlewares.Recoverer(slog.Default()),
+		middlewares.Logger(),
+		middlewares.JSONContentType(),
+		middlewares.Timeout(30*time.Second),
+	)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Auth

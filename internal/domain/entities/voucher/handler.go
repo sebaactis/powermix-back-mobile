@@ -3,6 +3,7 @@ package voucher
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -25,7 +26,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req VoucherRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al intentar parsear el request, por favor validar el mismo", nil)
+		writeVoucherValidation(w, "Error al intentar parsear el request, por favor validar el mismo", nil)
 		return
 	}
 
@@ -33,10 +34,11 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, ErrNoAvailableVouchers) {
-			utils.WriteError(w, http.StatusConflict, "No hay vouchers disponibles en este momento", nil)
+			writeVoucherConflict(w, "No hay vouchers disponibles en este momento")
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, "Error en el servidor al intentar crear el voucher", nil)
+		slog.Error("error al asignar voucher", "error", err)
+		writeVoucherInternal(w, "Error en el servidor al intentar crear el voucher")
 		return
 	}
 
@@ -50,14 +52,15 @@ func (h *HTTPHandler) GetAllByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middlewares.UserIDFromContext(ctx)
 
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
+		writeVoucherUnauthorized(w)
 		return
 	}
 
 	vouchers, err := h.service.GetAllByUserID(ctx, userID)
 
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al recuperar los vouchers", err)
+		slog.Error("error al recuperar vouchers del usuario", "user_id", userID, "error", err)
+		writeVoucherInternal(w, "Error al recuperar los vouchers")
 		return
 	}
 	utils.WriteSuccess(w, http.StatusOK, vouchers)
@@ -68,19 +71,19 @@ func (h *HTTPHandler) DeleteVoucher(w http.ResponseWriter, r *http.Request) {
 	voucherIDStr := r.PathValue("id")
 
 	if voucherIDStr == "" {
-		utils.WriteError(w, http.StatusBadRequest, "El id del voucher es requerido", nil)
+		writeVoucherValidation(w, "El id del voucher es requerido", nil)
 		return
 	}
 
 	voucherID, err := uuid.Parse(voucherIDStr)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "El formato del id del voucher es inválido", nil)
+		writeVoucherValidation(w, "El formato del id del voucher es inválido", nil)
 		return
 	}
 
 	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
+		writeVoucherUnauthorized(w)
 		return
 	}
 
@@ -92,19 +95,20 @@ func (h *HTTPHandler) DeleteVoucher(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if voucherNotFound {
-			utils.WriteError(w, http.StatusNotFound, "El voucher no existe", nil)
+			writeVoucherNotFound(w, "El voucher no existe")
 			return
 		}
 		if voucherNotBelongsToUser {
-			utils.WriteError(w, http.StatusForbidden, "No tienes permiso para eliminar este voucher", nil)
+			writeVoucherForbidden(w, "No tienes permiso para eliminar este voucher")
 			return
 		}
 		if voucherNotUsed {
-			utils.WriteError(w, http.StatusBadRequest, "Solo se pueden eliminar vouchers que ya han sido usados", nil)
+			writeVoucherValidation(w, "Solo se pueden eliminar vouchers que ya han sido usados", nil)
 			return
 		}
 
-		utils.WriteError(w, http.StatusInternalServerError, "Error al eliminar el voucher", map[string]string{"error": err.Error()})
+		slog.Error("error al eliminar voucher", "voucher_id", voucherID, "user_id", userID, "error", err)
+		writeVoucherInternal(w, "Error al eliminar el voucher")
 		return
 	}
 
@@ -114,9 +118,53 @@ func (h *HTTPHandler) DeleteVoucher(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) GetAvailableCount(w http.ResponseWriter, r *http.Request) {
 	count, err := h.service.GetAvailableCount(r.Context())
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "Error al obtener la cantidad de vouchers disponibles", map[string]string{"error": err.Error()})
+		slog.Error("error al obtener cantidad de vouchers disponibles", "error", err)
+		writeVoucherInternal(w, "Error al obtener la cantidad de vouchers disponibles")
 		return
 	}
 
 	utils.WriteSuccess(w, http.StatusOK, map[string]int64{"available": count})
+}
+
+func writeVoucherUnauthorized(w http.ResponseWriter) {
+	utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeUnauthorized,
+		Message: "No se pudo recuperar el usuario de la sesión",
+	})
+}
+
+func writeVoucherValidation(w http.ResponseWriter, message string, fields interface{}) {
+	utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeValidation,
+		Message: message,
+		Fields:  fields,
+	})
+}
+
+func writeVoucherNotFound(w http.ResponseWriter, message string) {
+	utils.WriteError(w, http.StatusNotFound, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeNotFound,
+		Message: message,
+	})
+}
+
+func writeVoucherForbidden(w http.ResponseWriter, message string) {
+	utils.WriteError(w, http.StatusForbidden, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeUnauthorized,
+		Message: message,
+	})
+}
+
+func writeVoucherConflict(w http.ResponseWriter, message string) {
+	utils.WriteError(w, http.StatusConflict, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeConflict,
+		Message: message,
+	})
+}
+
+func writeVoucherInternal(w http.ResponseWriter, message string) {
+	utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeInternal,
+		Message: message,
+	})
 }

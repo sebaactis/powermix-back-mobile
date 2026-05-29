@@ -44,7 +44,10 @@ func NewHTTPHandler(users *user.Service,
 func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 	req, err := h.parseLoginRequest(r)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err.Error(), nil)
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "No se pudo parsear el cuerpo de la solicitud",
+		})
 		return
 	}
 
@@ -56,7 +59,11 @@ func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.generateTokens(r.Context(), user)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "No se pueden generar los tokens", nil)
+		slog.Error("error al generar tokens en login", "user_id", user.ID, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "No se pueden generar los tokens",
+		})
 		return
 	}
 
@@ -69,40 +76,61 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AccessToken == "" {
-		utils.WriteError(w, http.StatusBadRequest, "Access_token es requerido", nil)
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "Access_token es requerido",
+		})
 		return
 	}
 
 	userInfo, err := oauth.GetGoogleUserInfo(r.Context(), body.AccessToken)
-
-	slog.Info("OAuth Google login", "email", userInfo.Email, "provider", userInfo.Provider)
-
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "Token de google invalido", map[string]string{"error": err.Error()})
+		slog.Error("error al validar token de Google", "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeExternalService,
+			Message: "Token de Google inválido",
+		})
 		return
 	}
 
-	user, err := h.users.FindOrCreateFromOAuth(r.Context(), userInfo)
+	slog.Info("OAuth Google login", "email", userInfo.Email, "provider", userInfo.Provider)
 
+	user, err := h.users.FindOrCreateFromOAuth(r.Context(), userInfo)
 	if err != nil {
-		utils.WriteError(w, http.StatusUnauthorized, "error al guardar el usuario", map[string]string{"error": err.Error()})
+		slog.Error("error al guardar usuario OAuth", "email", userInfo.Email, "error", err)
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "No se pudo guardar el usuario",
+		})
 		return
 	}
 
 	accessToken, accessExpiration, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "Error generando el access token", map[string]string{"error": err.Error()})
+		slog.Error("error al generar access token OAuth", "user_id", user.ID, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "Error generando el access token",
+		})
 		return
 	}
 
 	refreshToken, refreshExpiration, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeRefresh)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "Error generando el refresh token", map[string]string{"error": err.Error()})
+		slog.Error("error al generar refresh token OAuth", "user_id", user.ID, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "Error generando el refresh token",
+		})
 		return
 	}
 
 	if _, err = h.tokens.CreateInitialRefreshToken(r.Context(), user.ID, refreshToken, refreshExpiration); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "Error generando el refresh token", map[string]string{"error": err.Error()})
+		slog.Error("error al persistir refresh token OAuth", "user_id", user.ID, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "Error generando el refresh token",
+		})
 		return
 	}
 
@@ -122,7 +150,10 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-		utils.WriteError(w, http.StatusUnauthorized, "Refresh token vacio", nil)
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "Refresh token vacío",
+		})
 		return
 	}
 
@@ -130,7 +161,10 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	userID, email, tokenType, err := h.jwt.Parse(refreshToken, jwtx.TokenTypeRefresh)
 	if err != nil || tokenType != jwtx.TokenTypeRefresh {
-		utils.WriteError(w, http.StatusUnauthorized, "Refresh token invalido", nil)
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "Refresh token inválido",
+		})
 		return
 	}
 
@@ -166,13 +200,23 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, token.ErrRefreshInvalid):
-			utils.WriteError(w, http.StatusUnauthorized, "Refresh token invalido o expirado", nil)
+			utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeUnauthorized,
+				Message: "Refresh token inválido o expirado",
+			})
 			return
 		case errors.Is(err, token.ErrRefreshReuseDetected):
-			utils.WriteError(w, http.StatusUnauthorized, "Tu sesion ya no puede ser utilizada. Inicia sesion nuevamente.", nil)
+			utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeUnauthorized,
+				Message: "Tu sesión ya no puede ser utilizada. Iniciá sesión nuevamente.",
+			})
 			return
 		default:
-			utils.WriteError(w, http.StatusInternalServerError, "Error al refrescar token", nil)
+			slog.Error("error al refrescar token", "user_id", userID, "error", err)
+			utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeInternal,
+				Message: "Error al refrescar token",
+			})
 			return
 		}
 	}
@@ -190,7 +234,10 @@ func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Req
 	ctx := r.Context()
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear el body de la request", nil)
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "No se pudo parsear el body de la request",
+		})
 		return
 	}
 
@@ -202,26 +249,27 @@ func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Req
 	}
 
 	user, err := h.users.GetByEmail(ctx, req.Email)
-
 	if err != nil {
 		genericResponse()
 		return
 	}
 
-	token, err := h.generateTokenRecovery(ctx, user)
-
+	recoveryToken, err := h.generateTokenRecovery(ctx, user)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al generar el token", nil)
+		slog.Error("error al generar token de recuperación", "user_id", user.ID, "error", err)
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "Error al generar el token de recuperación",
+		})
 		return
 	}
 
-	tokenEscaped := url.QueryEscape(*token)
+	tokenEscaped := url.QueryEscape(*recoveryToken)
 	emailEscaped := url.QueryEscape(user.Email)
 	resetURL := fmt.Sprintf("https://powermixstation.com.ar/reset-password?token=%s&email=%s", tokenEscaped, emailEscaped)
 
 	if err := h.mailer.SendResetPasswordEmail(ctx, user.Email, resetURL); err != nil {
 		genericResponse()
-
 		slog.Error("error al enviar email de recovery", "email", user.Email, "error", err)
 		return
 	}
@@ -233,7 +281,10 @@ func (h *HTTPHandler) UnlockUser(w http.ResponseWriter, r *http.Request) {
 	var req UnlockUserReq
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid json", nil)
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "JSON inválido",
+		})
 		return
 	}
 
@@ -245,18 +296,27 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 	var req user.UserRecoveryPassword
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear el cuerpo de la request", nil)
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "No se pudo parsear el cuerpo de la request",
+		})
 		return
 	}
 
 	userId, _, tokenType, err := h.jwt.ParseResetPassword(req.Token)
 	if err != nil {
-		utils.WriteError(w, http.StatusUnauthorized, err.Error(), nil)
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "Token de recuperación inválido o expirado",
+		})
 		return
 	}
 
 	if tokenType != jwtx.TokenTypeResetPassword {
-		utils.WriteError(w, http.StatusUnauthorized, "Tipo de token inválido", nil)
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "Tipo de token inválido",
+		})
 		return
 	}
 
@@ -268,7 +328,27 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 	})
 
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err.Error(), nil)
+		if fields, ok := validations.AsValidationError(err); ok {
+			utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeValidation,
+				Message: "Error de validación",
+				Fields:  fields,
+			})
+			return
+		}
+		// Token inválido/expirado/usado → 401 (mismo mensaje por privacidad)
+		if errors.Is(err, token.ErrTokenInvalid) || errors.Is(err, user.ErrNotFound) {
+			utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeUnauthorized,
+				Message: "Token de recuperación inválido o expirado",
+			})
+			return
+		}
+		slog.Error("error al actualizar contraseña por recuperación", "user_id", userId, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "Error en el servidor",
+		})
 		return
 	}
 
@@ -370,10 +450,16 @@ func (h *HTTPHandler) generateTokenRecovery(ctx context.Context, user *user.User
 func (h *HTTPHandler) handleLoginError(w http.ResponseWriter, ctx context.Context, err error, user *user.User, email string) {
 	switch err {
 	case ErrAccountLocked:
-		utils.WriteError(w, http.StatusLocked, "Cuenta temporalmente bloqueada", nil)
+		utils.WriteError(w, http.StatusLocked, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInvalidCreds,
+			Message: "Cuenta temporalmente bloqueada",
+		})
 
 	case ErrInvalidCredentials:
-		utils.WriteError(w, http.StatusUnauthorized, "Credenciales inválidas", nil)
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInvalidCreds,
+			Message: "Credenciales inválidas",
+		})
 
 		if user == nil {
 			user, _ = h.users.GetByEmail(ctx, email)
@@ -384,7 +470,11 @@ func (h *HTTPHandler) handleLoginError(w http.ResponseWriter, ctx context.Contex
 		}
 
 	default:
-		utils.WriteError(w, http.StatusInternalServerError, "Error interno del servidor", nil)
+		slog.Error("error interno en login", "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "Error interno del servidor",
+		})
 	}
 }
 

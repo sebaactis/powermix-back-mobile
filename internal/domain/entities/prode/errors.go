@@ -17,4 +17,5 @@ var (
 	ErrMaintenanceDisabled     = errors.New("prode: el modo mantenimiento está deshabilitado")
 	ErrInvalidAdminKey         = errors.New("prode: clave de administración inválida")
 	ErrProdeDisabled           = errors.New("prode: la funcionalidad está deshabilitada")
+	ErrInternal                = errors.New("prode: error interno de persistencia")
 )

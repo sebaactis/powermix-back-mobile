@@ -3,6 +3,8 @@ package token
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,7 +37,7 @@ func (r *Repository) Transaction(ctx context.Context, fn func(rTx *Repository) e
 
 func (r *Repository) Create(ctx context.Context, token *Token) (*Token, error) {
 	if err := r.db.WithContext(ctx).Create(token).Error; err != nil {
-		return nil, err
+		return nil, mapTokenRepoErr("create", err)
 	}
 	return token, nil
 }
@@ -46,10 +48,7 @@ func (r *Repository) GetByToken(ctx context.Context, tokenIn string) (*Token, er
 
 	err := r.db.WithContext(ctx).Where("token_hash = ?", tokenIn).First(&token).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("no se encontró el token proporcionado")
-		}
-		return nil, errors.New("error inesperado")
+		return nil, mapTokenRepoErr("get by hash", err)
 	}
 
 	return &token, nil
@@ -66,11 +65,7 @@ func (r *Repository) GetValidResetPasswordToken(ctx context.Context, tokenIn str
 		First(&t).Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("token inválido o expirado")
-		}
-
-		return nil, errors.New("error inesperado al buscar el token de recuperación")
+		return nil, mapResetTokenRepoErr("get valid reset token", err)
 	}
 
 	return &t, nil
@@ -84,11 +79,11 @@ func (r *Repository) Update(ctx context.Context, token string, updates map[strin
 		Updates(updates)
 
 	if result.Error != nil {
-		return result.Error
+		return mapTokenRepoErr("update", result.Error)
 	}
 
 	if result.RowsAffected == 0 {
-		return errors.New("no se encontró el token proporcionado")
+		return fmt.Errorf("token: update: %w", ErrTokenNotFound)
 	}
 
 	return nil
@@ -112,7 +107,7 @@ func (r *Repository) GetRefreshByHashForUpdate(ctx context.Context, tokenHash st
 		First(&t).Error
 
 	if err != nil {
-		return nil, err
+		return nil, mapTokenRepoErr("get refresh by hash for update", err)
 	}
 
 	return &t, nil
@@ -130,7 +125,10 @@ func (r *Repository) RevokeFamily(ctx context.Context, familyID uuid.UUID, now t
 			"revoked_reason": reason,
 		})
 
-	return result.Error
+	if result.Error != nil {
+		return mapTokenRepoErr("revoke family", result.Error)
+	}
+	return nil
 }
 
 func (r *Repository) MarkRotated(ctx context.Context, tokenID uuid.UUID, replacedBy uuid.UUID, now time.Time) error {
@@ -146,5 +144,30 @@ func (r *Repository) MarkRotated(ctx context.Context, tokenID uuid.UUID, replace
 			"revoked_reason": reason,
 		})
 
-	return result.Error
+	if result.Error != nil {
+		return mapTokenRepoErr("mark rotated", result.Error)
+	}
+	return nil
+}
+
+func mapTokenRepoErr(action string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("token: %s: %w", action, ErrTokenNotFound)
+	}
+	slog.Error("token repository", "action", action, "error", err)
+	return fmt.Errorf("token: %s: %w", action, ErrInternal)
+}
+
+func mapResetTokenRepoErr(action string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("token: %s: %w", action, ErrTokenInvalid)
+	}
+	slog.Error("token repository", "action", action, "error", err)
+	return fmt.Errorf("token: %s: %w", action, ErrInternal)
 }
