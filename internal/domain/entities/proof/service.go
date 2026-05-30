@@ -2,7 +2,6 @@ package proof
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -43,7 +42,7 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 	}
 
 	if proofExistsValidate != nil {
-		return nil, fmt.Errorf("ya tenes guardado un comprobante con este ID: %s", proof.IDMP)
+		return nil, fmt.Errorf("proof: create: %w (id_mp=%s)", ErrProofDuplicateID, proof.IDMP)
 	}
 
 	payment, err := s.mpClient.ValidatePaymentExists(ctx, proof.IDMP)
@@ -51,7 +50,7 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 		return nil, err
 	}
 	if payment == nil {
-		return nil, fmt.Errorf("el comprobante %s no existe, por favor, verifique los datos ingresados", proof.IDMP)
+		return nil, fmt.Errorf("proof: create: %w (id_mp=%s)", ErrProofNotFoundID, proof.IDMP)
 	}
 
 	goodsName, err := s.coffejiClient.GetGoodsNameByOrderNo(ctx, *payment.ExternalID)
@@ -76,30 +75,30 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 		ProductName:     &goodsName,
 	}
 
-	// Use a transaction to ensure atomicity
+	// Usamos una transacción para asegurar atomicidad
 	var proofResult *Proof
 	var quantityStamps int
 
 	err = s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Create repositories/services that use this transaction
+		// Creamos repositories/services que usen esta transacción
 		txProofRepo := s.repo.WithTx(tx)
 		txUserService := s.userService.WithTx(tx)
 		txVoucherService := s.voucherService.WithTx(tx)
 
-		// 1. Create the proof
+		// 1. Creamos el proof
 		var createErr error
 		proofResult, createErr = txProofRepo.Create(ctx, newProof)
 		if createErr != nil {
 			return createErr
 		}
 
-		// 2. Increment stamps counter
+		// 2. Incrementamos el contador de stamps
 		quantityStamps, createErr = txUserService.IncrementStampsCounter(ctx, proofResult.UserID)
 		if createErr != nil {
 			return createErr
 		}
 
-		// 3. If stamps == 5, assign voucher and reset counter
+		// 3. Si stamps == 5, asignamos voucher y reseteamos el contador
 		if quantityStamps == 5 {
 			_, createErr = txVoucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{
 				UserID: proofResult.UserID,
@@ -157,7 +156,7 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 		return nil, err
 	}
 	if result == nil {
-		return nil, fmt.Errorf("no se encontró un pago que coincida con los datos ingresados")
+		return nil, fmt.Errorf("proof: create from others: %w", ErrPaymentNotFound)
 	}
 
 	idMP := fmt.Sprintf("%d", result.PaymentID)
@@ -167,7 +166,7 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 		return nil, err
 	}
 	if proofExistsValidate != nil {
-		return nil, fmt.Errorf("ya guardaste un comprobante con este pago de Mercado Pago (ID: %s)", idMP)
+		return nil, fmt.Errorf("proof: create from others: %w (id_mp=%s)", ErrProofDuplicateMP, idMP)
 	}
 
 	goodsName, err := s.coffejiClient.GetGoodsNameByOrderNo(ctx, *result.ExternalID)
@@ -192,24 +191,24 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 		ProductName:     &goodsName,
 	}
 
-	// Use a transaction to ensure atomicity
+	// Usamos una transacción para asegurar atomicidad
 	var proofResult *Proof
 	var quantityStamps int
 
 	err = s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Create repositories/services that use this transaction
+		// Creamos repositories/services que usen esta transacción
 		txProofRepo := s.repo.WithTx(tx)
 		txUserService := s.userService.WithTx(tx)
 		txVoucherService := s.voucherService.WithTx(tx)
 
-		// 1. Create the proof
+		// 1. Creamos el proof
 		var createErr error
 		proofResult, createErr = txProofRepo.Create(ctx, newProof)
 		if createErr != nil {
 			return createErr
 		}
 
-		// 2. Increment stamps counter
+		// 2. Incrementamos el contador de stamps
 		quantityStamps, createErr = txUserService.IncrementStampsCounter(ctx, proofResult.UserID)
 		if createErr != nil {
 			return createErr
@@ -218,7 +217,7 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 		log.Printf("proofResult (others): userID=%s idMP=%s amount=%.2f", proofResult.UserID, proofResult.IDMP, proofResult.AmountMP)
 		log.Printf("quantityStamps (others): %d", quantityStamps)
 
-		// 3. If stamps == 5, assign voucher and reset counter
+		// 3. Si stamps == 5, asignamos voucher y reseteamos el contador
 		if quantityStamps == 5 {
 			_, createErr = txVoucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{
 				UserID: proofResult.UserID,
@@ -357,7 +356,7 @@ func (s *Service) GetLastThreeByUserID(ctx context.Context, userID uuid.UUID) ([
 
 func (s *Service) GetByID(ctx context.Context, id string) (*ProofResponse, error) {
 	if id == "" {
-		return nil, errors.New("id es requerido")
+		return nil, ErrProofIDRequired
 	}
 
 	proof, err := s.repo.GetByID(ctx, id)

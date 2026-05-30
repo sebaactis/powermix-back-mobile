@@ -1,7 +1,10 @@
 package proof
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,12 +29,12 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
+		writeProofUnauthorized(w)
 		return
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al intentar parsear el request, por favor validar el mismo", nil)
+		writeProofValidation(w, "Error al intentar parsear el request, por favor validar el mismo", nil)
 		return
 	}
 
@@ -40,11 +43,12 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 	proof, err := h.service.Create(r.Context(), &req)
 	if err != nil {
 		if fields, ok := validations.AsValidationError(err); ok {
-			utils.WriteError(w, http.StatusBadRequest, "Error de validación", fields)
+			writeProofValidation(w, "Error de validación", fields)
 			return
 		}
-		utils.WriteError(w, http.StatusBadRequest, err.Error(), nil)
-		return
+		if writeProofServiceError(r.Context(), w, err, "No se pudo crear el comprobante", userID) {
+			return
+		}
 	}
 
 	utils.WriteSuccess(w, http.StatusCreated, proof)
@@ -55,12 +59,12 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
+		writeProofUnauthorized(w)
 		return
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al intentar parsear el request, por favor validar el mismo", nil)
+		writeProofValidation(w, "Error al intentar parsear el request, por favor validar el mismo", nil)
 		return
 	}
 
@@ -69,11 +73,12 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 	proof, err := h.service.CreateFromOthers(r.Context(), &req)
 	if err != nil {
 		if fields, ok := validations.AsValidationError(err); ok {
-			utils.WriteError(w, http.StatusBadRequest, "Error de validación", fields)
+			writeProofValidation(w, "Error de validación", fields)
 			return
 		}
-		utils.WriteError(w, http.StatusBadRequest, err.Error(), nil)
-		return
+		if writeProofServiceError(r.Context(), w, err, "No se pudo crear el comprobante", userID) {
+			return
+		}
 	}
 
 	utils.WriteSuccess(w, http.StatusCreated, proof)
@@ -82,13 +87,14 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) GetAllByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
+		writeProofUnauthorized(w)
 		return
 	}
 
 	proofs, err := h.service.GetAllByUserID(r.Context(), userID)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudieron recuperar los comprobantes del usuario", nil)
+		slog.ErrorContext(r.Context(), "error al listar comprobantes del usuario", "user_id", userID, "error", err)
+		writeProofInternal(w, "No se pudieron recuperar los comprobantes del usuario")
 		return
 	}
 
@@ -97,9 +103,8 @@ func (h *HTTPHandler) GetAllByUserID(w http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) GetAllByUserIDPaginated(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middlewares.UserIDFromContext(r.Context())
-
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
+		writeProofUnauthorized(w)
 		return
 	}
 
@@ -153,9 +158,9 @@ func (h *HTTPHandler) GetAllByUserIDPaginated(w http.ResponseWriter, r *http.Req
 	}
 
 	proofsPage, err := h.service.GetAllByUserIDPaginated(r.Context(), userID, page, pageSize, filters)
-
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudieron recuperar los comprobantes del usuario", nil)
+		slog.ErrorContext(r.Context(), "error al listar comprobantes paginados", "user_id", userID, "error", err)
+		writeProofInternal(w, "No se pudieron recuperar los comprobantes del usuario")
 		return
 	}
 
@@ -165,13 +170,14 @@ func (h *HTTPHandler) GetAllByUserIDPaginated(w http.ResponseWriter, r *http.Req
 func (h *HTTPHandler) GetLastThreeByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middlewares.UserIDFromContext(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el userID del contexto", nil)
+		writeProofUnauthorized(w)
 		return
 	}
 
 	proofs, err := h.service.GetLastThreeByUserID(r.Context(), userID)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudieron recuperar los comprobantes del usuario", nil)
+		slog.ErrorContext(r.Context(), "error al listar últimos comprobantes", "user_id", userID, "error", err)
+		writeProofInternal(w, "No se pudieron recuperar los comprobantes del usuario")
 		return
 	}
 
@@ -182,15 +188,69 @@ func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	if id == "" {
-		utils.WriteError(w, http.StatusBadRequest, "El id del comprobante de pago es requerido", nil)
+		writeProofValidation(w, "El id del comprobante de pago es requerido", nil)
 		return
 	}
 
 	proof, err := h.service.GetByID(r.Context(), id)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo recuperar el comprobante de pago", nil)
+		if errors.Is(err, ErrProofIDRequired) {
+			writeProofValidation(w, err.Error(), nil)
+			return
+		}
+		slog.ErrorContext(r.Context(), "error al obtener comprobante", "id", id, "error", err)
+		writeProofInternal(w, "No se pudo recuperar el comprobante de pago")
+		return
+	}
+
+	if proof == nil {
+		writeProofNotFound(w, "Comprobante no encontrado")
 		return
 	}
 
 	utils.WriteSuccess(w, http.StatusOK, proof)
+}
+
+func writeProofUnauthorized(w http.ResponseWriter) {
+	utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeUnauthorized,
+		Message: "No se pudo recuperar el usuario de la sesión",
+	})
+}
+
+func writeProofValidation(w http.ResponseWriter, message string, fields interface{}) {
+	utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeValidation,
+		Message: message,
+		Fields:  fields,
+	})
+}
+
+func writeProofNotFound(w http.ResponseWriter, message string) {
+	utils.WriteError(w, http.StatusNotFound, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeNotFound,
+		Message: message,
+	})
+}
+
+func writeProofInternal(w http.ResponseWriter, message string) {
+	utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+		Code:    utils.ErrCodeInternal,
+		Message: message,
+	})
+}
+
+// writeProofServiceError mapea errores del service a respuestas de la API. Devuelve true si lo manejó.
+func writeProofServiceError(ctx context.Context, w http.ResponseWriter, err error, internalMessage string, userID interface{}) bool {
+	if errors.Is(err, ErrProofDuplicateID) ||
+		errors.Is(err, ErrProofNotFoundID) ||
+		errors.Is(err, ErrPaymentNotFound) ||
+		errors.Is(err, ErrProofDuplicateMP) ||
+		errors.Is(err, ErrProofIDRequired) {
+		writeProofValidation(w, err.Error(), nil)
+		return true
+	}
+	slog.ErrorContext(ctx, internalMessage, "user_id", userID, "error", err)
+	writeProofInternal(w, internalMessage)
+	return true
 }

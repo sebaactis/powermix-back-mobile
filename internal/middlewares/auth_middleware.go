@@ -51,25 +51,37 @@ func (a *AuthMiddleware) RequireAuth() func(http.Handler) http.Handler {
 
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				utils.WriteError(w, http.StatusUnauthorized, "El authorization header se encuentra vacio", nil)
+				utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+					Code:    utils.ErrCodeUnauthorized,
+					Message: "El authorization header se encuentra vacío",
+				})
 				return
 			}
 
 			const prefix = "Bearer "
 			if !strings.HasPrefix(authHeader, prefix) {
-				utils.WriteError(w, http.StatusUnauthorized, "El authorization header tiene un formato invalido", nil)
+				utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+					Code:    utils.ErrCodeUnauthorized,
+					Message: "El authorization header tiene un formato inválido",
+				})
 				return
 			}
 
 			accessToken := strings.TrimPrefix(authHeader, prefix)
 			if accessToken == "" {
-				utils.WriteError(w, http.StatusUnauthorized, "Token vacio", nil)
+				utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+					Code:    utils.ErrCodeUnauthorized,
+					Message: "Token vacío",
+				})
 				return
 			}
 
 			userID, email, tokenType, err := a.jwt.Parse(accessToken, jwtx.TokenTypeAccess)
 			if err != nil || tokenType != jwtx.TokenTypeAccess {
-				utils.WriteError(w, http.StatusUnauthorized, "Token invalido o expirado", nil)
+				utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+					Code:    utils.ErrCodeUnauthorized,
+					Message: "Token inválido o expirado",
+				})
 				return
 			}
 

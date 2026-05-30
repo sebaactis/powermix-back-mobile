@@ -3,6 +3,8 @@ package voucher
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +16,7 @@ var ErrNoAvailableVouchers = errors.New("no hay vouchers disponibles en este mom
 var ErrVoucherNotFound = errors.New("voucher no encontrado")
 var ErrVoucherNotBelongsToUser = errors.New("el voucher no pertenece al usuario")
 var ErrVoucherNotUsed = errors.New("solo se pueden eliminar vouchers usados")
+var ErrInternal = errors.New("voucher: error interno de persistencia")
 
 type Repository struct {
 	db *gorm.DB
@@ -25,12 +28,12 @@ func NewRepository(db *gorm.DB) *Repository {
 	}
 }
 
-// WithTx returns a new Repository that uses the given transaction
+// WithTx devuelve un nuevo Repository que usa la transacción que le pasamos
 func (r *Repository) WithTx(tx *gorm.DB) *Repository {
 	return &Repository{db: tx}
 }
 
-// DB exposes the underlying db connection for transaction management
+// DB expone la conexión subyacente para manejo de transacciones
 func (r *Repository) DB() *gorm.DB {
 	return r.db
 }
@@ -47,10 +50,7 @@ func (r *Repository) AssignNextVoucher(ctx context.Context, voucherRequest *Vouc
 			Order("id").
 			First(&v).Error; err != nil {
 
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrNoAvailableVouchers
-			}
-			return err
+			return mapVoucherAssignErr(ctx, "assign next", err)
 		}
 
 		now := time.Now()
@@ -59,7 +59,7 @@ func (r *Repository) AssignNextVoucher(ctx context.Context, voucherRequest *Vouc
 		v.AssignedDate = now
 
 		if err := tx.Save(&v).Error; err != nil {
-			return err
+			return mapVoucherAssignErr(ctx, "assign next save", err)
 		}
 
 		result = &v
@@ -81,7 +81,7 @@ func (r *Repository) GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]*V
 		Find(&result)
 
 	if tx.Error != nil {
-		return nil, tx.Error
+		return nil, mapVoucherRepoErr(ctx, "get all by user id", tx.Error)
 	}
 
 	return result, nil
@@ -94,7 +94,10 @@ func (r *Repository) ListAssignedActive(ctx context.Context, limit int) ([]*Vouc
 		Where("status = ?", VoucherStatusActive).
 		Limit(limit).
 		Find(&v).Error
-	return v, err
+	if err != nil {
+		return nil, mapVoucherRepoErr(ctx, "list assigned active", err)
+	}
+	return v, nil
 }
 
 func (r *Repository) MarkUsed(ctx context.Context, id uuid.UUID, now time.Time) error {
@@ -102,17 +105,23 @@ func (r *Repository) MarkUsed(ctx context.Context, id uuid.UUID, now time.Time) 
 		"status":  VoucherStatusUsed,
 		"used_at": &now,
 	}
-	return r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Model(&Voucher{}).
 		Where("id = ?", id).
-		Updates(updates).Error
+		Updates(updates).Error; err != nil {
+		return mapVoucherRepoErr(ctx, "mark used", err)
+	}
+	return nil
 }
 
 func (r *Repository) TouchChecked(ctx context.Context, id uuid.UUID, now time.Time) error {
-	return r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Model(&Voucher{}).
 		Where("id = ?", id).
-		Update("last_checked_at", &now).Error
+		Update("last_checked_at", &now).Error; err != nil {
+		return mapVoucherRepoErr(ctx, "touch checked", err)
+	}
+	return nil
 }
 
 func (r *Repository) DeleteUsedVoucher(ctx context.Context, voucherID uuid.UUID, userID uuid.UUID) error {
@@ -123,19 +132,22 @@ func (r *Repository) DeleteUsedVoucher(ctx context.Context, voucherID uuid.UUID,
 		Delete(&Voucher{})
 
 	if result.Error != nil {
-		return result.Error
+		return mapVoucherRepoErr(ctx, "delete used voucher", result.Error)
 	}
 
 	if result.RowsAffected == 0 {
 		var v Voucher
 		err := r.db.WithContext(ctx).Where("id = ?", voucherID).First(&v).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrVoucherNotFound
+			return fmt.Errorf("voucher: delete used: %w", ErrVoucherNotFound)
+		}
+		if err != nil {
+			return mapVoucherRepoErr(ctx, "delete used voucher lookup", err)
 		}
 		if v.UserID != userID {
-			return ErrVoucherNotBelongsToUser
+			return fmt.Errorf("voucher: delete used: %w", ErrVoucherNotBelongsToUser)
 		}
-		return ErrVoucherNotUsed
+		return fmt.Errorf("voucher: delete used: %w", ErrVoucherNotUsed)
 	}
 
 	return nil
@@ -147,5 +159,27 @@ func (r *Repository) CountAvailable(ctx context.Context) (int64, error) {
 		Model(&Voucher{}).
 		Where("is_assigned = ?", false).
 		Count(&count).Error
-	return count, err
+	if err != nil {
+		return 0, mapVoucherRepoErr(ctx, "count available", err)
+	}
+	return count, nil
+}
+
+func mapVoucherAssignErr(ctx context.Context, action string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("voucher: %s: %w", action, ErrNoAvailableVouchers)
+	}
+	slog.ErrorContext(ctx, "voucher repository", "action", action, "error", err)
+	return fmt.Errorf("voucher: %s: %w", action, ErrInternal)
+}
+
+func mapVoucherRepoErr(ctx context.Context, action string, err error) error {
+	if err == nil {
+		return nil
+	}
+	slog.ErrorContext(ctx, "voucher repository", "action", action, "error", err)
+	return fmt.Errorf("voucher: %s: %w", action, ErrInternal)
 }

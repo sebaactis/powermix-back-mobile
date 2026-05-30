@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -31,7 +32,10 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req UserCreate
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al intentar parsear el request, por favor validar el mismo", nil)
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "Error al intentar parsear el request, por favor validar el mismo",
+		})
 		return
 	}
 
@@ -39,16 +43,27 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if fields, ok := validations.AsValidationError(err); ok {
-			utils.WriteError(w, http.StatusBadRequest, "Error de validacion", fields)
+			utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeValidation,
+				Message: "Error de validación",
+				Fields:  fields,
+			})
 			return
 		}
 
 		if errors.Is(err, ErrDuplicateEmail) {
-			utils.WriteError(w, http.StatusConflict, "El email ya se encuentra en uso", nil)
+			utils.WriteError(w, http.StatusConflict, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeDuplicateEntry,
+				Message: "El email ya se encuentra en uso",
+			})
 			return
 		}
 
-		utils.WriteError(w, http.StatusInternalServerError, "Error en el servidor", map[string]string{"error": err.Error()})
+		slog.ErrorContext(r.Context(), "error al crear usuario", "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "Error en el servidor",
+		})
 		return
 	}
 
@@ -57,11 +72,29 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-
-	user, err := h.service.GetByID(r.Context(), uuid.MustParse(idStr))
-
+	id, err := uuid.Parse(idStr)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Id inválido", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "Id inválido",
+		})
+		return
+	}
+
+	user, err := h.service.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			utils.WriteError(w, http.StatusNotFound, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeNotFound,
+				Message: "Usuario no encontrado",
+			})
+			return
+		}
+		slog.ErrorContext(r.Context(), "error al obtener usuario", "user_id", id, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "Error en el servidor",
+		})
 		return
 	}
 
@@ -71,15 +104,27 @@ func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.getUserIDFromRequest(r)
 	if err != nil {
-		utils.WriteError(w, http.StatusUnauthorized, "Token inválido",
-			map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "Token inválido",
+		})
 		return
 	}
 
 	user, err := h.service.GetByID(r.Context(), userID)
 	if err != nil {
-		utils.WriteError(w, http.StatusNotFound, "Usuario no encontrado",
-			map[string]string{"error": err.Error()})
+		if errors.Is(err, ErrNotFound) {
+			utils.WriteError(w, http.StatusNotFound, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeNotFound,
+				Message: "Usuario no encontrado",
+			})
+			return
+		}
+		slog.ErrorContext(r.Context(), "error al obtener usuario actual", "user_id", userID, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "Error en el servidor",
+		})
 		return
 	}
 
@@ -90,14 +135,20 @@ func (h *HTTPHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := h.getUserIDFromRequest(r)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Token invalido", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "Token inválido",
+		})
 		return
 	}
 
 	var req UserUpdate
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la request, por favor revise los datos enviados", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "No se pudo parsear la request, por favor revise los datos enviados",
+		})
 		return
 	}
 
@@ -105,14 +156,32 @@ func (h *HTTPHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, ErrSameName) {
-			utils.WriteError(w, http.StatusBadRequest, "El nombre no puede ser igual al actual", nil)
+			utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeValidation,
+				Message: "El nombre no puede ser igual al actual",
+			})
 			return
 		}
 		if fields, ok := validations.AsValidationError(err); ok {
-			utils.WriteError(w, http.StatusBadRequest, "Error de validación", fields)
+			utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeValidation,
+				Message: "Error de validación",
+				Fields:  fields,
+			})
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, "No se pudo actualizar el usuario", nil)
+		if errors.Is(err, ErrNotFound) {
+			utils.WriteError(w, http.StatusNotFound, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeNotFound,
+				Message: "Usuario no encontrado",
+			})
+			return
+		}
+		slog.ErrorContext(r.Context(), "error al actualizar usuario", "user_id", userID, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "No se pudo actualizar el usuario",
+		})
 		return
 	}
 
@@ -123,22 +192,46 @@ func (h *HTTPHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := h.getUserIDFromRequest(r)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Token invalido", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "Token inválido",
+		})
 		return
 	}
 
 	var req UserChangePassword
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la request, por favor revise los datos enviados", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "No se pudo parsear la request, por favor revise los datos enviados",
+		})
 		return
 	}
 
 	userUpdate, err := h.service.UpdatePassword(r.Context(), userID, req)
 
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "No se pudo actualizar el usuario",
-			map[string]string{"error": err.Error()})
+		if fields, ok := validations.AsValidationError(err); ok {
+			utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeValidation,
+				Message: "Error de validación",
+				Fields:  fields,
+			})
+			return
+		}
+		if errors.Is(err, ErrNotFound) {
+			utils.WriteError(w, http.StatusNotFound, utils.WriteErrorOpts{
+				Code:    utils.ErrCodeNotFound,
+				Message: "Usuario no encontrado",
+			})
+			return
+		}
+		slog.ErrorContext(r.Context(), "error al actualizar contraseña", "user_id", userID, "error", err)
+		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeInternal,
+			Message: "No se pudo actualizar la contraseña",
+		})
 		return
 	}
 
@@ -150,21 +243,31 @@ func (h *HTTPHandler) SendEmailContact(w http.ResponseWriter, r *http.Request) {
 	var req *mailer.ContactRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "No se pudo parsear la request, por favor revise los datos enviados", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "No se pudo parsear la request, por favor revise los datos enviados",
+		})
 		return
 	}
 
 	_, err := h.getUserIDFromRequest(r)
 
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Token invalido", map[string]string{"error": err.Error()})
+		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeUnauthorized,
+			Message: "Token inválido",
+		})
 		return
 	}
 
 	emailSend, err := h.service.SendEmailContact(r.Context(), *req)
 
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "Error al intentar enviar su consulta", err)
+		slog.ErrorContext(r.Context(), "error al enviar consulta de contacto", "error", err)
+		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
+			Code:    utils.ErrCodeValidation,
+			Message: "Error al intentar enviar su consulta",
+		})
 		return
 	}
 

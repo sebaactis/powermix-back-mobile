@@ -3,6 +3,8 @@ package proof
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -16,12 +18,12 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// WithTx returns a new Repository that uses the given transaction
+// WithTx devuelve un nuevo Repository que usa la transacción que le pasamos
 func (r *Repository) WithTx(tx *gorm.DB) *Repository {
 	return &Repository{db: tx}
 }
 
-// DB exposes the underlying db connection for transaction management
+// DB expone la conexión subyacente para manejo de transacciones
 func (r *Repository) DB() *gorm.DB {
 	return r.db
 }
@@ -31,7 +33,7 @@ func (r *Repository) Create(ctx context.Context, proof *Proof) (*Proof, error) {
 	err := r.db.WithContext(ctx).Create(proof).Error
 
 	if err != nil {
-		return nil, err
+		return nil, mapProofRepoErr(ctx, "create", err)
 	}
 
 	return proof, nil
@@ -42,7 +44,7 @@ func (r *Repository) GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]*P
 	result := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&proofs)
 
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, mapProofRepoErr(ctx, "get all by user id", result.Error)
 	}
 
 	return proofs, nil
@@ -81,7 +83,7 @@ func (r *Repository) GetAllByUserIDPaginated(ctx context.Context, userID uuid.UU
 	}
 
 	if err := baseQuery.Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, mapProofRepoErr(ctx, "count by user id paginated", err)
 	}
 
 	var proofs []*Proof
@@ -92,7 +94,7 @@ func (r *Repository) GetAllByUserIDPaginated(ctx context.Context, userID uuid.UU
 		Limit(pageSize).
 		Offset(offset).
 		Find(&proofs).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, mapProofRepoErr(ctx, "get all by user id paginated", err)
 	}
 
 	return proofs, total, nil
@@ -108,7 +110,7 @@ func (r *Repository) GetLastThreeByUserID(ctx context.Context, userID uuid.UUID)
 		Find(&proofs)
 
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, mapProofRepoErr(ctx, "get last three by user id", result.Error)
 	}
 
 	return proofs, nil
@@ -122,8 +124,16 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*Proof, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, mapProofRepoErr(ctx, "get by id", err)
 	}
 
 	return &proof, nil
+}
+
+func mapProofRepoErr(ctx context.Context, action string, err error) error {
+	if err == nil {
+		return nil
+	}
+	slog.ErrorContext(ctx, "proof repository", "action", action, "error", err)
+	return fmt.Errorf("proof: %s: %w", action, ErrInternal)
 }

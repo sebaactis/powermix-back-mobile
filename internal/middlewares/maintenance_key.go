@@ -3,6 +3,8 @@ package middlewares
 import (
 	"crypto/subtle"
 	"net/http"
+
+	"github.com/sebaactis/powermix-back-mobile/internal/utils"
 )
 
 // MaintenanceKeyConfig es la interfaz que necesita el middleware
@@ -31,7 +33,10 @@ func MaintenanceKey(cfg MaintenanceKeyConfig) func(http.Handler) http.Handler {
 
 			key := r.Header.Get("X-Prode-Admin-Key")
 			if key == "" || subtle.ConstantTimeCompare([]byte(key), []byte(cfg.AdminAPIKey())) != 1 {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
+					Code:    utils.ErrCodeUnauthorized,
+					Message: "No autorizado",
+				})
 				return
 			}
 

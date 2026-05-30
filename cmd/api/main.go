@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/coffeeji"
+	"github.com/sebaactis/powermix-back-mobile/internal/platform/logger"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/mailer"
 	"github.com/sebaactis/powermix-back-mobile/internal/clients/mercadopago"
 	"github.com/sebaactis/powermix-back-mobile/internal/domain/entities/prode"
@@ -29,29 +30,38 @@ import (
 )
 
 func main() {
+	// Configuramos el logger JSON para Render.com con inyección automática de request_id
+	baseHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+	slog.SetDefault(slog.New(logger.NewContextHandler(baseHandler)))
 
 	if err := godotenv.Load(); err != nil {
-		log.Printf("No se encontró .env (ok en prod): %v", err)
+		slog.Info("No se encontró .env (ok en prod)", "error", err)
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("configuración inválida: %v", err)
+		slog.Error("configuración inválida", "error", err)
+		os.Exit(1)
 	}
 
 	db, err := database.Open(cfg)
 	if err != nil {
-		log.Fatal("Error al conectar la base de datos", err)
+		slog.Error("Error al conectar la base de datos", "error", err)
+		os.Exit(1)
 	}
 
 	if err := database.Migrate(db); err != nil {
-		log.Fatal("Error al migrar las entidades en la base de datos", err)
+		slog.Error("Error al migrar las entidades en la base de datos", "error", err)
+		os.Exit(1)
 	}
 
-	// Utils
+	// Utilidades
 	jwt, err := jwtx.NewJWT()
 	if err != nil {
-		log.Fatalf("error inicializando JWT: %v", err)
+		slog.Error("error inicializando JWT", "error", err)
+		os.Exit(1)
 	}
 	validator := validations.NewValidator()
 	rateLimiter := middlewares.NewRateLimiter(10, 2*time.Minute)
@@ -59,10 +69,10 @@ func main() {
 	// Mailer
 	mailerClient := mailer.NewResendMailer(cfg.ResendKey, "safeimportsarg@gmail.com", "Powermix")
 
-	// MP
+	// MercadoPago
 	mpClient := mercadopago.NewClient(cfg.MercagoPagoToken)
 
-	// Coffeji
+	// Coffeeji
 	coffejiClient := coffeeji.NewClient(cfg.CoffejiKey, cfg.CoffejiSecret)
 
 	// Token DI
@@ -94,15 +104,15 @@ func main() {
 	prodeHandler := prode.NewHTTPHandler(prodeService)
 
 	if cfg.IsProdeEnabled() {
-		log.Printf("PRODE habilitado — rutas activas en /api/v1/prode/*")
+		slog.Info("PRODE habilitado", "routes", "/api/v1/prode/*")
 		if cfg.IsMaintenanceEnabled() {
-			log.Printf("PRODE mantenimiento habilitado — rutas admin protegidas con X-Prode-Admin-Key")
+			slog.Info("PRODE mantenimiento habilitado", "header", "X-Prode-Admin-Key")
 		}
 		if len(cfg.ProdeAdminEmails) > 0 {
-			log.Printf("PRODE notificaciones admin: %v", cfg.ProdeAdminEmails)
+			slog.Info("PRODE notificaciones admin", "emails", cfg.ProdeAdminEmails)
 		}
 	} else {
-		log.Printf("PRODE deshabilitado — las rutas /api/v1/prode/* no están registradas")
+		slog.Info("PRODE deshabilitado")
 	}
 
 	// Middlewares
@@ -123,7 +133,8 @@ func main() {
 
 	voucherCron := jobs.NewVoucherCron(voucherService, "@every 20m", 100, 30*time.Second)
 	if err := voucherCron.Start(); err != nil {
-		log.Fatalf("cannot start voucher cron: %v", err)
+		slog.Error("cannot start voucher cron", "error", err)
+		os.Exit(1)
 	}
 	defer voucherCron.Stop()
 
@@ -136,9 +147,10 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("API escuchando en %s", cfg.HTTPAddr)
+		slog.Info("API escuchando", "addr", cfg.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %v", err)
+			slog.Error("listen error", "error", err)
+			os.Exit(1)
 		}
 
 	}()
@@ -152,8 +164,8 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Error al apagar el servidor:: %v", err)
+		slog.Error("Error al apagar el servidor", "error", err)
 	}
 
-	log.Println("Apagado limpio")
+	slog.Info("Apagado limpio")
 }
