@@ -28,12 +28,12 @@ func NewRepository(db *gorm.DB) *Repository {
 	}
 }
 
-// WithTx returns a new Repository that uses the given transaction
+// WithTx devuelve un nuevo Repository que usa la transacción que le pasamos
 func (r *Repository) WithTx(tx *gorm.DB) *Repository {
 	return &Repository{db: tx}
 }
 
-// DB exposes the underlying db connection for transaction management
+// DB expone la conexión subyacente para manejo de transacciones
 func (r *Repository) DB() *gorm.DB {
 	return r.db
 }
@@ -50,7 +50,7 @@ func (r *Repository) AssignNextVoucher(ctx context.Context, voucherRequest *Vouc
 			Order("id").
 			First(&v).Error; err != nil {
 
-			return mapVoucherAssignErr("assign next", err)
+			return mapVoucherAssignErr(ctx, "assign next", err)
 		}
 
 		now := time.Now()
@@ -59,7 +59,7 @@ func (r *Repository) AssignNextVoucher(ctx context.Context, voucherRequest *Vouc
 		v.AssignedDate = now
 
 		if err := tx.Save(&v).Error; err != nil {
-			return mapVoucherAssignErr("assign next save", err)
+			return mapVoucherAssignErr(ctx, "assign next save", err)
 		}
 
 		result = &v
@@ -81,7 +81,7 @@ func (r *Repository) GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]*V
 		Find(&result)
 
 	if tx.Error != nil {
-		return nil, mapVoucherRepoErr("get all by user id", tx.Error)
+		return nil, mapVoucherRepoErr(ctx, "get all by user id", tx.Error)
 	}
 
 	return result, nil
@@ -95,7 +95,7 @@ func (r *Repository) ListAssignedActive(ctx context.Context, limit int) ([]*Vouc
 		Limit(limit).
 		Find(&v).Error
 	if err != nil {
-		return nil, mapVoucherRepoErr("list assigned active", err)
+		return nil, mapVoucherRepoErr(ctx, "list assigned active", err)
 	}
 	return v, nil
 }
@@ -109,7 +109,7 @@ func (r *Repository) MarkUsed(ctx context.Context, id uuid.UUID, now time.Time) 
 		Model(&Voucher{}).
 		Where("id = ?", id).
 		Updates(updates).Error; err != nil {
-		return mapVoucherRepoErr("mark used", err)
+		return mapVoucherRepoErr(ctx, "mark used", err)
 	}
 	return nil
 }
@@ -119,7 +119,7 @@ func (r *Repository) TouchChecked(ctx context.Context, id uuid.UUID, now time.Ti
 		Model(&Voucher{}).
 		Where("id = ?", id).
 		Update("last_checked_at", &now).Error; err != nil {
-		return mapVoucherRepoErr("touch checked", err)
+		return mapVoucherRepoErr(ctx, "touch checked", err)
 	}
 	return nil
 }
@@ -132,7 +132,7 @@ func (r *Repository) DeleteUsedVoucher(ctx context.Context, voucherID uuid.UUID,
 		Delete(&Voucher{})
 
 	if result.Error != nil {
-		return mapVoucherRepoErr("delete used voucher", result.Error)
+		return mapVoucherRepoErr(ctx, "delete used voucher", result.Error)
 	}
 
 	if result.RowsAffected == 0 {
@@ -142,7 +142,7 @@ func (r *Repository) DeleteUsedVoucher(ctx context.Context, voucherID uuid.UUID,
 			return fmt.Errorf("voucher: delete used: %w", ErrVoucherNotFound)
 		}
 		if err != nil {
-			return mapVoucherRepoErr("delete used voucher lookup", err)
+			return mapVoucherRepoErr(ctx, "delete used voucher lookup", err)
 		}
 		if v.UserID != userID {
 			return fmt.Errorf("voucher: delete used: %w", ErrVoucherNotBelongsToUser)
@@ -160,26 +160,26 @@ func (r *Repository) CountAvailable(ctx context.Context) (int64, error) {
 		Where("is_assigned = ?", false).
 		Count(&count).Error
 	if err != nil {
-		return 0, mapVoucherRepoErr("count available", err)
+		return 0, mapVoucherRepoErr(ctx, "count available", err)
 	}
 	return count, nil
 }
 
-func mapVoucherAssignErr(action string, err error) error {
+func mapVoucherAssignErr(ctx context.Context, action string, err error) error {
 	if err == nil {
 		return nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return fmt.Errorf("voucher: %s: %w", action, ErrNoAvailableVouchers)
 	}
-	slog.Error("voucher repository", "action", action, "error", err)
+	slog.ErrorContext(ctx, "voucher repository", "action", action, "error", err)
 	return fmt.Errorf("voucher: %s: %w", action, ErrInternal)
 }
 
-func mapVoucherRepoErr(action string, err error) error {
+func mapVoucherRepoErr(ctx context.Context, action string, err error) error {
 	if err == nil {
 		return nil
 	}
-	slog.Error("voucher repository", "action", action, "error", err)
+	slog.ErrorContext(ctx, "voucher repository", "action", action, "error", err)
 	return fmt.Errorf("voucher: %s: %w", action, ErrInternal)
 }

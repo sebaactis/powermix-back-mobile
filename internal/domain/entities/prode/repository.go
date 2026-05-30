@@ -35,7 +35,7 @@ func (r *Repository) GetMatchByID(ctx context.Context, id uuid.UUID) (*ProdeMatc
 	var match ProdeMatch
 	err := r.db.WithContext(ctx).First(&match, "id = ?", id).Error
 	if err != nil {
-		return nil, mapProdeMatchErr("get match by id", err)
+		return nil, mapProdeMatchErr(ctx, "get match by id", err)
 	}
 	return &match, nil
 }
@@ -48,7 +48,7 @@ func (r *Repository) GetVisibleMatches(ctx context.Context) ([]ProdeMatch, error
 		Order("kickoff_at ASC").
 		Find(&matches).Error
 	if err != nil {
-		return nil, mapProdeRepoErr("get visible matches", err)
+		return nil, mapProdeRepoErr(ctx, "get visible matches", err)
 	}
 	return matches, nil
 }
@@ -60,7 +60,7 @@ func (r *Repository) GetPredictionsByMatchID(ctx context.Context, matchID uuid.U
 		Where("match_id = ?", matchID).
 		Find(&predictions).Error
 	if err != nil {
-		return nil, mapProdeRepoErr("get predictions by match id", err)
+		return nil, mapProdeRepoErr(ctx, "get predictions by match id", err)
 	}
 	return predictions, nil
 }
@@ -73,7 +73,7 @@ func (r *Repository) GetRewardByPredictionID(ctx context.Context, predictionID u
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, mapProdeRepoErr("get reward by prediction id", err)
+		return nil, mapProdeRepoErr(ctx, "get reward by prediction id", err)
 	}
 	return &reward, nil
 }
@@ -85,7 +85,7 @@ func (r *Repository) GetUserPrediction(ctx context.Context, userID uuid.UUID, ma
 		Where("user_id = ? AND match_id = ?", userID, matchID).
 		First(&pred).Error
 	if err != nil {
-		return nil, mapProdeUserPredictionLookupErr(err)
+		return nil, mapProdeUserPredictionLookupErr(ctx, err)
 	}
 	return &pred, nil
 }
@@ -109,19 +109,19 @@ func (r *Repository) UpsertPrediction(ctx context.Context, pred *ProdePrediction
 		existing.OpponentGoals = pred.OpponentGoals
 		existing.Status = PredStatusPending
 		if err := r.db.WithContext(ctx).Save(&existing).Error; err != nil {
-			return nil, mapProdeRepoErr("upsert prediction save", err)
+			return nil, mapProdeRepoErr(ctx, "upsert prediction save", err)
 		}
 		return &existing, nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// No existe → crear
 		if err := r.db.WithContext(ctx).Create(pred).Error; err != nil {
-			return nil, mapProdeRepoErr("upsert prediction create", err)
+			return nil, mapProdeRepoErr(ctx, "upsert prediction create", err)
 		}
 		return pred, nil
 	}
 
-	return nil, mapProdeRepoErr("upsert prediction lookup", err)
+	return nil, mapProdeRepoErr(ctx, "upsert prediction lookup", err)
 }
 
 // GetPredictionsByUserID obtiene todas las predicciones de un usuario.
@@ -132,7 +132,7 @@ func (r *Repository) GetPredictionsByUserID(ctx context.Context, userID uuid.UUI
 		Order("created_at DESC").
 		Find(&predictions).Error
 	if err != nil {
-		return nil, mapProdeRepoErr("get predictions by user id", err)
+		return nil, mapProdeRepoErr(ctx, "get predictions by user id", err)
 	}
 	return predictions, nil
 }
@@ -140,7 +140,7 @@ func (r *Repository) GetPredictionsByUserID(ctx context.Context, userID uuid.UUI
 // CreateMatch inserta un nuevo partido.
 func (r *Repository) CreateMatch(ctx context.Context, match *ProdeMatch) error {
 	if err := r.db.WithContext(ctx).Create(match).Error; err != nil {
-		return mapProdeRepoErr("create match", err)
+		return mapProdeRepoErr(ctx, "create match", err)
 	}
 	return nil
 }
@@ -148,7 +148,7 @@ func (r *Repository) CreateMatch(ctx context.Context, match *ProdeMatch) error {
 // UpdateMatch guarda los cambios de un partido existente.
 func (r *Repository) UpdateMatch(ctx context.Context, match *ProdeMatch) error {
 	if err := r.db.WithContext(ctx).Save(match).Error; err != nil {
-		return mapProdeRepoErr("update match", err)
+		return mapProdeRepoErr(ctx, "update match", err)
 	}
 	return nil
 }
@@ -156,7 +156,7 @@ func (r *Repository) UpdateMatch(ctx context.Context, match *ProdeMatch) error {
 // CreateReward inserta un nuevo premio en el ledger.
 func (r *Repository) CreateReward(ctx context.Context, reward *ProdeReward) error {
 	if err := r.db.WithContext(ctx).Create(reward).Error; err != nil {
-		return mapProdeRepoErr("create reward", err)
+		return mapProdeRepoErr(ctx, "create reward", err)
 	}
 	return nil
 }
@@ -164,7 +164,7 @@ func (r *Repository) CreateReward(ctx context.Context, reward *ProdeReward) erro
 // UpdateReward guarda los cambios de un premio existente.
 func (r *Repository) UpdateReward(ctx context.Context, reward *ProdeReward) error {
 	if err := r.db.WithContext(ctx).Save(reward).Error; err != nil {
-		return mapProdeRepoErr("update reward", err)
+		return mapProdeRepoErr(ctx, "update reward", err)
 	}
 	return nil
 }
@@ -172,7 +172,7 @@ func (r *Repository) UpdateReward(ctx context.Context, reward *ProdeReward) erro
 // UpdatePrediction actualiza una predicción existente.
 func (r *Repository) UpdatePrediction(ctx context.Context, pred *ProdePrediction) error {
 	if err := r.db.WithContext(ctx).Save(pred).Error; err != nil {
-		return mapProdeRepoErr("update prediction", err)
+		return mapProdeRepoErr(ctx, "update prediction", err)
 	}
 	return nil
 }
@@ -182,7 +182,7 @@ func (r *Repository) GetPredictionByID(ctx context.Context, id uuid.UUID) (*Prod
 	var pred ProdePrediction
 	err := r.db.WithContext(ctx).First(&pred, "id = ?", id).Error
 	if err != nil {
-		return nil, mapProdePredictionErr("get prediction by id", err)
+		return nil, mapProdePredictionErr(ctx, "get prediction by id", err)
 	}
 	return &pred, nil
 }
@@ -195,7 +195,7 @@ func (r *Repository) GetPendingInventoryRewards(ctx context.Context) ([]ProdeRew
 		Order("created_at ASC").
 		Find(&rewards).Error
 	if err != nil {
-		return nil, mapProdeRepoErr("get pending inventory rewards", err)
+		return nil, mapProdeRepoErr(ctx, "get pending inventory rewards", err)
 	}
 	return rewards, nil
 }
@@ -208,48 +208,48 @@ func (r *Repository) CountPendingInventoryRewards(ctx context.Context) (int, err
 		Where("status = ?", RewardStatusPendingInventory).
 		Count(&count).Error
 	if err != nil {
-		return 0, mapProdeRepoErr("count pending inventory rewards", err)
+		return 0, mapProdeRepoErr(ctx, "count pending inventory rewards", err)
 	}
 	return int(count), nil
 }
 
-func mapProdeMatchErr(action string, err error) error {
+func mapProdeMatchErr(ctx context.Context, action string, err error) error {
 	if err == nil {
 		return nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return fmt.Errorf("prode: %s: %w", action, ErrMatchNotFound)
 	}
-	slog.Error("prode repository", "action", action, "error", err)
+	slog.ErrorContext(ctx, "prode repository", "action", action, "error", err)
 	return fmt.Errorf("prode: %s: %w", action, ErrInternal)
 }
 
-func mapProdePredictionErr(action string, err error) error {
+func mapProdePredictionErr(ctx context.Context, action string, err error) error {
 	if err == nil {
 		return nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return fmt.Errorf("prode: %s: %w", action, ErrPredictionNotFound)
 	}
-	slog.Error("prode repository", "action", action, "error", err)
+	slog.ErrorContext(ctx, "prode repository", "action", action, "error", err)
 	return fmt.Errorf("prode: %s: %w", action, ErrInternal)
 }
 
-func mapProdeRepoErr(action string, err error) error {
+func mapProdeRepoErr(ctx context.Context, action string, err error) error {
 	if err == nil {
 		return nil
 	}
-	slog.Error("prode repository", "action", action, "error", err)
+	slog.ErrorContext(ctx, "prode repository", "action", action, "error", err)
 	return fmt.Errorf("prode: %s: %w", action, ErrInternal)
 }
 
-func mapProdeUserPredictionLookupErr(err error) error {
+func mapProdeUserPredictionLookupErr(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}
-	slog.Error("prode repository", "action", "get user prediction", "error", err)
+	slog.ErrorContext(ctx, "prode repository", "action", "get user prediction", "error", err)
 	return fmt.Errorf("prode: get user prediction: %w", ErrInternal)
 }

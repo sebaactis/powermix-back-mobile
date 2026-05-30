@@ -1,6 +1,7 @@
 package proof
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestMapProofRepoErr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapProofRepoErr("list proofs", tt.input)
+			got := mapProofRepoErr(context.Background(), "list proofs", tt.input)
 
 			if tt.wantNil {
 				if got != nil {

@@ -24,7 +24,7 @@ func NewHTTPHandler(service *Service) *HTTPHandler {
 func (h *HTTPHandler) ListMatches(w http.ResponseWriter, r *http.Request) {
 	matches, err := h.service.ListMatches(r.Context())
 	if err != nil {
-		slog.Error("error al listar partidos", "error", err)
+		slog.ErrorContext(r.Context(), "error al listar partidos", "error", err)
 		writeProdeInternal(w, "Error al obtener los partidos")
 		return
 	}
@@ -46,7 +46,7 @@ func (h *HTTPHandler) GetMatch(w http.ResponseWriter, r *http.Request) {
 			writeProdeNotFound(w, "Partido no encontrado")
 			return
 		}
-		slog.Error("error al obtener partido", "match_id", matchID, "error", err)
+		slog.ErrorContext(r.Context(), "error al obtener partido", "match_id", matchID, "error", err)
 		writeProdeInternal(w, "Error al obtener el partido")
 		return
 	}
@@ -88,7 +88,7 @@ func (h *HTTPHandler) CreateOrUpdatePrediction(w http.ResponseWriter, r *http.Re
 		case errors.Is(err, ErrMatchNotOpen):
 			writeProdeConflict(w, "El partido no está abierto para predicciones")
 		default:
-			slog.Error("error al guardar predicción", "match_id", matchID, "user_id", userID, "error", err)
+			slog.ErrorContext(r.Context(), "error al guardar predicción", "match_id", matchID, "user_id", userID, "error", err)
 			writeProdeInternal(w, "Error al guardar la predicción")
 		}
 		return
@@ -101,7 +101,7 @@ func (h *HTTPHandler) CreateOrUpdatePrediction(w http.ResponseWriter, r *http.Re
 func (h *HTTPHandler) GetMyPredictions(w http.ResponseWriter, r *http.Request) {
 	predictions, err := h.service.GetMyPredictions(r.Context())
 	if err != nil {
-		slog.Error("error al obtener predicciones del usuario", "error", err)
+		slog.ErrorContext(r.Context(), "error al obtener predicciones del usuario", "error", err)
 		writeProdeInternal(w, "Error al obtener las predicciones")
 		return
 	}
@@ -126,12 +126,12 @@ func (h *HTTPHandler) AdminCreateMatch(w http.ResponseWriter, r *http.Request) {
 
 	match, err := h.service.CreateMatch(r.Context(), req)
 	if err != nil {
-		slog.Error("error al crear partido", "error", err)
+		slog.ErrorContext(r.Context(), "error al crear partido", "error", err)
 		writeProdeInternal(w, "Error al crear el partido")
 		return
 	}
 
-	slog.Info("partido creado por admin", "match_id", match.ID, "opponent", match.Opponent)
+	slog.InfoContext(r.Context(), "partido creado por admin", "match_id", match.ID, "opponent", match.Opponent)
 	utils.WriteSuccess(w, http.StatusCreated, match)
 }
 
@@ -155,7 +155,7 @@ func (h *HTTPHandler) AdminUpdateMatch(w http.ResponseWriter, r *http.Request) {
 			writeProdeNotFound(w, "Partido no encontrado")
 			return
 		}
-		slog.Error("error al actualizar partido", "match_id", matchID, "error", err)
+		slog.ErrorContext(r.Context(), "error al actualizar partido", "match_id", matchID, "error", err)
 		writeProdeInternal(w, "Error al actualizar el partido")
 		return
 	}
@@ -187,16 +187,14 @@ func (h *HTTPHandler) AdminRecordResult(w http.ResponseWriter, r *http.Request) 
 			writeProdeValidation(w, "El resultado debe ser no negativo", nil)
 			return
 		}
-		slog.Error("error al registrar resultado", "match_id", matchID, "error", err)
+		slog.ErrorContext(r.Context(), "error al registrar resultado", "match_id", matchID, "error", err)
 		writeProdeInternal(w, "Error al registrar el resultado")
 		return
 	}
 
-	slog.Info("resultado registrado por admin",
-		"match_id", matchID,
+	slog.InfoContext(r.Context(), "resultado registrado por admin", "match_id", matchID,
 		"argentina", req.ArgentinaGoals,
-		"opponent", req.OpponentGoals,
-	)
+		"opponent", req.OpponentGoals,)
 	utils.WriteSuccess(w, http.StatusOK, match)
 }
 
@@ -218,7 +216,7 @@ func (h *HTTPHandler) AdminSettleMatch(w http.ResponseWriter, r *http.Request) {
 			writeProdeConflict(w, "El partido aún no tiene resultado cargado")
 			return
 		}
-		slog.Error("error al ejecutar settlement", "match_id", matchID, "error", err)
+		slog.ErrorContext(r.Context(), "error al ejecutar settlement", "match_id", matchID, "error", err)
 		writeProdeInternal(w, "Error al procesar las predicciones")
 		return
 	}
@@ -230,7 +228,7 @@ func (h *HTTPHandler) AdminSettleMatch(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) AdminRetryPendingRewards(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.RetryPendingRewards(r.Context())
 	if err != nil {
-		slog.Error("error al reintentar premios pendientes", "error", err)
+		slog.ErrorContext(r.Context(), "error al reintentar premios pendientes", "error", err)
 		writeProdeInternal(w, "Error al procesar los premios pendientes")
 		return
 	}

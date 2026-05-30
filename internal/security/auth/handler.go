@@ -59,7 +59,7 @@ func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.generateTokens(r.Context(), user)
 	if err != nil {
-		slog.Error("error al generar tokens en login", "user_id", user.ID, "error", err)
+		slog.ErrorContext(r.Context(), "error al generar tokens en login", "user_id", user.ID, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "No se pueden generar los tokens",
@@ -85,7 +85,7 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 
 	userInfo, err := oauth.GetGoogleUserInfo(r.Context(), body.AccessToken)
 	if err != nil {
-		slog.Error("error al validar token de Google", "error", err)
+		slog.ErrorContext(r.Context(), "error al validar token de Google", "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeExternalService,
 			Message: "Token de Google inválido",
@@ -93,11 +93,11 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.Info("OAuth Google login", "email", userInfo.Email, "provider", userInfo.Provider)
+	slog.InfoContext(r.Context(), "OAuth Google login", "email", userInfo.Email, "provider", userInfo.Provider)
 
 	user, err := h.users.FindOrCreateFromOAuth(r.Context(), userInfo)
 	if err != nil {
-		slog.Error("error al guardar usuario OAuth", "email", userInfo.Email, "error", err)
+		slog.ErrorContext(r.Context(), "error al guardar usuario OAuth", "email", userInfo.Email, "error", err)
 		utils.WriteError(w, http.StatusUnauthorized, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeUnauthorized,
 			Message: "No se pudo guardar el usuario",
@@ -107,7 +107,7 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, accessExpiration, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeAccess)
 	if err != nil {
-		slog.Error("error al generar access token OAuth", "user_id", user.ID, "error", err)
+		slog.ErrorContext(r.Context(), "error al generar access token OAuth", "user_id", user.ID, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "Error generando el access token",
@@ -117,7 +117,7 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 
 	refreshToken, refreshExpiration, err := h.jwt.Sign(user.ID, user.Email, jwtx.TokenTypeRefresh)
 	if err != nil {
-		slog.Error("error al generar refresh token OAuth", "user_id", user.ID, "error", err)
+		slog.ErrorContext(r.Context(), "error al generar refresh token OAuth", "user_id", user.ID, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "Error generando el refresh token",
@@ -126,7 +126,7 @@ func (h *HTTPHandler) OAuthGoogle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err = h.tokens.CreateInitialRefreshToken(r.Context(), user.ID, refreshToken, refreshExpiration); err != nil {
-		slog.Error("error al persistir refresh token OAuth", "user_id", user.ID, "error", err)
+		slog.ErrorContext(r.Context(), "error al persistir refresh token OAuth", "user_id", user.ID, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "Error generando el refresh token",
@@ -212,7 +212,7 @@ func (h *HTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		default:
-			slog.Error("error al refrescar token", "user_id", userID, "error", err)
+			slog.ErrorContext(r.Context(), "error al refrescar token", "user_id", userID, "error", err)
 			utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 				Code:    utils.ErrCodeInternal,
 				Message: "Error al refrescar token",
@@ -256,7 +256,7 @@ func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Req
 
 	recoveryToken, err := h.generateTokenRecovery(ctx, user)
 	if err != nil {
-		slog.Error("error al generar token de recuperación", "user_id", user.ID, "error", err)
+		slog.ErrorContext(r.Context(), "error al generar token de recuperación", "user_id", user.ID, "error", err)
 		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeValidation,
 			Message: "Error al generar el token de recuperación",
@@ -270,7 +270,7 @@ func (h *HTTPHandler) RecoveryPasswordRequest(w http.ResponseWriter, r *http.Req
 
 	if err := h.mailer.SendResetPasswordEmail(ctx, user.Email, resetURL); err != nil {
 		genericResponse()
-		slog.Error("error al enviar email de recovery", "email", user.Email, "error", err)
+		slog.ErrorContext(r.Context(), "error al enviar email de recovery", "email", user.Email, "error", err)
 		return
 	}
 
@@ -344,7 +344,7 @@ func (h *HTTPHandler) UpdatePasswordByRecovery(w http.ResponseWriter, r *http.Re
 			})
 			return
 		}
-		slog.Error("error al actualizar contraseña por recuperación", "user_id", userId, "error", err)
+		slog.ErrorContext(r.Context(), "error al actualizar contraseña por recuperación", "user_id", userId, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "Error en el servidor",
@@ -470,7 +470,7 @@ func (h *HTTPHandler) handleLoginError(w http.ResponseWriter, ctx context.Contex
 		}
 
 	default:
-		slog.Error("error interno en login", "error", err)
+		slog.ErrorContext(ctx, "error interno en login", "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "Error interno del servidor",

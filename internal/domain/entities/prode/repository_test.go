@@ -1,6 +1,7 @@
 package prode
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestMapProdeMatchErr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapProdeMatchErr("get match", tt.input)
+			got := mapProdeMatchErr(context.Background(), "get match", tt.input)
 
 			if tt.wantNil {
 				if got != nil {
@@ -74,7 +75,7 @@ func TestMapProdeRepoErr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapProdeRepoErr("list matches", tt.input)
+			got := mapProdeRepoErr(context.Background(), "list matches", tt.input)
 
 			if tt.wantNil {
 				if got != nil {
@@ -93,11 +94,11 @@ func TestMapProdeRepoErr(t *testing.T) {
 func TestMapProdeUserPredictionLookup(t *testing.T) {
 	t.Parallel()
 
-	if got := mapProdeUserPredictionLookupErr(gorm.ErrRecordNotFound); got != nil {
+	if got := mapProdeUserPredictionLookupErr(context.Background(), gorm.ErrRecordNotFound); got != nil {
 		t.Fatalf("got %v, want nil for missing prediction", got)
 	}
 
-	if got := mapProdeUserPredictionLookupErr(errors.New("connection reset by peer")); !errors.Is(got, ErrInternal) {
+	if got := mapProdeUserPredictionLookupErr(context.Background(), errors.New("connection reset by peer")); !errors.Is(got, ErrInternal) {
 		t.Fatalf("errors.Is(got, ErrInternal) = false, got: %v", got)
 	}
 }

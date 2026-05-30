@@ -14,7 +14,7 @@ import (
 func TestWrapServiceErr_preservesSentinels(t *testing.T) {
 	t.Parallel()
 
-	repoErr := mapRepoErr("find by id", gorm.ErrRecordNotFound)
+	repoErr := mapRepoErr(context.Background(), "find by id", gorm.ErrRecordNotFound)
 	wrapped := wrapServiceErr("get by id", repoErr)
 
 	if !errors.Is(wrapped, ErrNotFound) {

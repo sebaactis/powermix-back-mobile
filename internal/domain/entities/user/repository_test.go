@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -42,7 +43,7 @@ func TestMapRepoErr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapRepoErr("test action", tt.input)
+			got := mapRepoErr(context.Background(), "test action", tt.input)
 
 			if tt.wantNil {
 				if got != nil {

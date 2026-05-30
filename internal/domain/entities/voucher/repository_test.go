@@ -1,6 +1,7 @@
 package voucher
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestMapVoucherAssignErr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapVoucherAssignErr("assign next", tt.input)
+			got := mapVoucherAssignErr(context.Background(), "assign next", tt.input)
 
 			if tt.wantNil {
 				if got != nil {
@@ -74,7 +75,7 @@ func TestMapVoucherRepoErr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapVoucherRepoErr("get all by user", tt.input)
+			got := mapVoucherRepoErr(context.Background(), "get all by user", tt.input)
 
 			if tt.wantNil {
 				if got != nil {

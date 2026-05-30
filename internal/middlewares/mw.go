@@ -19,23 +19,7 @@ func JSONContentType() func(http.Handler) http.Handler {
 	}
 }
 
-func Logger() func(http.Handler) http.Handler {
-	logger := slog.Default()
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-			next.ServeHTTP(w, r)
-			logger.Info("request",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"duration", time.Since(start).String(),
-				"ip", r.RemoteAddr,
-			)
-		})
-	}
-}
-
-// Recoverer catches panics and returns a standard API error envelope.
+// Recoverer atrapa los panics y devuelve un envelope de error estándar de la API.
 func Recoverer(logger *slog.Logger) func(http.Handler) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
@@ -44,7 +28,7 @@ func Recoverer(logger *slog.Logger) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if rec := recover(); rec != nil {
-					logger.Error("panic recovered",
+					logger.ErrorContext(r.Context(), "panic recovered",
 						"panic", rec,
 						"method", r.Method,
 						"path", r.URL.Path,
@@ -60,7 +44,7 @@ func Recoverer(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// Timeout aborts slow requests with the standard API error envelope.
+// Timeout corta las requests lentas con el envelope de error estándar de la API.
 func Timeout(d time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.TimeoutHandler(next, d, timeoutResponseBody)

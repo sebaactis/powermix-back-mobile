@@ -1,6 +1,7 @@
 package token
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestMapTokenRepoErr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapTokenRepoErr("get by hash", tt.input)
+			got := mapTokenRepoErr(context.Background(), "get by hash", tt.input)
 
 			if tt.wantNil {
 				if got != nil {
@@ -79,7 +80,7 @@ func TestMapResetTokenRepoErr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapResetTokenRepoErr("get valid reset token", tt.input)
+			got := mapResetTokenRepoErr(context.Background(), "get valid reset token", tt.input)
 
 			if tt.wantNil {
 				if got != nil {

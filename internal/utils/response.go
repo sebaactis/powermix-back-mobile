@@ -48,7 +48,7 @@ func WriteSuccess(w http.ResponseWriter, status int, data interface{}) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// WriteErrorMessage maps HTTP status to a default error code during handler migration.
+// WriteErrorMessage mapea el HTTP status a un código de error por defecto durante la migración de handlers.
 func WriteErrorMessage(w http.ResponseWriter, statusCode int, message string, fields interface{}) {
 	WriteError(w, statusCode, WriteErrorOpts{
 		Code:    codeFromHTTPStatus(statusCode),

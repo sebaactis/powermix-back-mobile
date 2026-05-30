@@ -1,6 +1,7 @@
 package proof
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -45,7 +46,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeProofValidation(w, "Error de validación", fields)
 			return
 		}
-		if writeProofServiceError(w, err, "No se pudo crear el comprobante", userID) {
+		if writeProofServiceError(r.Context(), w, err, "No se pudo crear el comprobante", userID) {
 			return
 		}
 	}
@@ -75,7 +76,7 @@ func (h *HTTPHandler) CreateFromOthers(w http.ResponseWriter, r *http.Request) {
 			writeProofValidation(w, "Error de validación", fields)
 			return
 		}
-		if writeProofServiceError(w, err, "No se pudo crear el comprobante", userID) {
+		if writeProofServiceError(r.Context(), w, err, "No se pudo crear el comprobante", userID) {
 			return
 		}
 	}
@@ -92,7 +93,7 @@ func (h *HTTPHandler) GetAllByUserID(w http.ResponseWriter, r *http.Request) {
 
 	proofs, err := h.service.GetAllByUserID(r.Context(), userID)
 	if err != nil {
-		slog.Error("error al listar comprobantes del usuario", "user_id", userID, "error", err)
+		slog.ErrorContext(r.Context(), "error al listar comprobantes del usuario", "user_id", userID, "error", err)
 		writeProofInternal(w, "No se pudieron recuperar los comprobantes del usuario")
 		return
 	}
@@ -158,7 +159,7 @@ func (h *HTTPHandler) GetAllByUserIDPaginated(w http.ResponseWriter, r *http.Req
 
 	proofsPage, err := h.service.GetAllByUserIDPaginated(r.Context(), userID, page, pageSize, filters)
 	if err != nil {
-		slog.Error("error al listar comprobantes paginados", "user_id", userID, "error", err)
+		slog.ErrorContext(r.Context(), "error al listar comprobantes paginados", "user_id", userID, "error", err)
 		writeProofInternal(w, "No se pudieron recuperar los comprobantes del usuario")
 		return
 	}
@@ -175,7 +176,7 @@ func (h *HTTPHandler) GetLastThreeByUserID(w http.ResponseWriter, r *http.Reques
 
 	proofs, err := h.service.GetLastThreeByUserID(r.Context(), userID)
 	if err != nil {
-		slog.Error("error al listar últimos comprobantes", "user_id", userID, "error", err)
+		slog.ErrorContext(r.Context(), "error al listar últimos comprobantes", "user_id", userID, "error", err)
 		writeProofInternal(w, "No se pudieron recuperar los comprobantes del usuario")
 		return
 	}
@@ -197,7 +198,7 @@ func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			writeProofValidation(w, err.Error(), nil)
 			return
 		}
-		slog.Error("error al obtener comprobante", "id", id, "error", err)
+		slog.ErrorContext(r.Context(), "error al obtener comprobante", "id", id, "error", err)
 		writeProofInternal(w, "No se pudo recuperar el comprobante de pago")
 		return
 	}
@@ -239,8 +240,8 @@ func writeProofInternal(w http.ResponseWriter, message string) {
 	})
 }
 
-// writeProofServiceError maps service errors to API responses. Returns true if handled.
-func writeProofServiceError(w http.ResponseWriter, err error, internalMessage string, userID interface{}) bool {
+// writeProofServiceError mapea errores del service a respuestas de la API. Devuelve true si lo manejó.
+func writeProofServiceError(ctx context.Context, w http.ResponseWriter, err error, internalMessage string, userID interface{}) bool {
 	if errors.Is(err, ErrProofDuplicateID) ||
 		errors.Is(err, ErrProofNotFoundID) ||
 		errors.Is(err, ErrPaymentNotFound) ||
@@ -249,7 +250,7 @@ func writeProofServiceError(w http.ResponseWriter, err error, internalMessage st
 		writeProofValidation(w, err.Error(), nil)
 		return true
 	}
-	slog.Error(internalMessage, "user_id", userID, "error", err)
+	slog.ErrorContext(ctx, internalMessage, "user_id", userID, "error", err)
 	writeProofInternal(w, internalMessage)
 	return true
 }

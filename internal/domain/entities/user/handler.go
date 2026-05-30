@@ -59,7 +59,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		slog.Error("error al crear usuario", "error", err)
+		slog.ErrorContext(r.Context(), "error al crear usuario", "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "Error en el servidor",
@@ -90,7 +90,7 @@ func (h *HTTPHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		slog.Error("error al obtener usuario", "user_id", id, "error", err)
+		slog.ErrorContext(r.Context(), "error al obtener usuario", "user_id", id, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "Error en el servidor",
@@ -120,7 +120,7 @@ func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		slog.Error("error al obtener usuario actual", "user_id", userID, "error", err)
+		slog.ErrorContext(r.Context(), "error al obtener usuario actual", "user_id", userID, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "Error en el servidor",
@@ -177,7 +177,7 @@ func (h *HTTPHandler) Update(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		slog.Error("error al actualizar usuario", "user_id", userID, "error", err)
+		slog.ErrorContext(r.Context(), "error al actualizar usuario", "user_id", userID, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "No se pudo actualizar el usuario",
@@ -227,7 +227,7 @@ func (h *HTTPHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		slog.Error("error al actualizar contraseña", "user_id", userID, "error", err)
+		slog.ErrorContext(r.Context(), "error al actualizar contraseña", "user_id", userID, "error", err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeInternal,
 			Message: "No se pudo actualizar la contraseña",
@@ -263,7 +263,7 @@ func (h *HTTPHandler) SendEmailContact(w http.ResponseWriter, r *http.Request) {
 	emailSend, err := h.service.SendEmailContact(r.Context(), *req)
 
 	if err != nil {
-		slog.Error("error al enviar consulta de contacto", "error", err)
+		slog.ErrorContext(r.Context(), "error al enviar consulta de contacto", "error", err)
 		utils.WriteError(w, http.StatusBadRequest, utils.WriteErrorOpts{
 			Code:    utils.ErrCodeValidation,
 			Message: "Error al intentar enviar su consulta",

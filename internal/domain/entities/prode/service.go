@@ -62,7 +62,7 @@ func (s *Service) ListMatches(ctx context.Context) ([]MatchResponse, error) {
 
 	matches, err := s.repo.GetVisibleMatches(ctx)
 	if err != nil {
-		slog.Error("error al obtener partidos visibles", "error", err)
+		slog.ErrorContext(ctx, "error al obtener partidos visibles", "error", err)
 		return nil, err
 	}
 
@@ -73,7 +73,7 @@ func (s *Service) ListMatches(ctx context.Context) ([]MatchResponse, error) {
 		if userID != uuid.Nil {
 			pred, err := s.repo.GetUserPrediction(ctx, userID, m.ID)
 			if err != nil {
-				slog.Error("error al obtener predicción del usuario", "match_id", m.ID, "user_id", userID, "error", err)
+				slog.ErrorContext(ctx, "error al obtener predicción del usuario", "match_id", m.ID, "user_id", userID, "error", err)
 			} else if pred != nil {
 				resp.MyPrediction = predictionToResponse(pred)
 			}
@@ -99,7 +99,7 @@ func (s *Service) GetMatch(ctx context.Context, matchID uuid.UUID) (*MatchRespon
 	if userID != uuid.Nil {
 		pred, err := s.repo.GetUserPrediction(ctx, userID, matchID)
 		if err != nil {
-			slog.Error("error al obtener predicción del usuario", "match_id", matchID, "user_id", userID, "error", err)
+			slog.ErrorContext(ctx, "error al obtener predicción del usuario", "match_id", matchID, "user_id", userID, "error", err)
 		} else if pred != nil {
 			resp.MyPrediction = predictionToResponse(pred)
 		}
@@ -112,17 +112,15 @@ func (s *Service) GetMatch(ctx context.Context, matchID uuid.UUID) (*MatchRespon
 func (s *Service) CreateOrUpdatePrediction(ctx context.Context, userID uuid.UUID, matchID uuid.UUID, req PredictionRequest) (*PredictionResponse, error) {
 	match, err := s.repo.GetMatchByID(ctx, matchID)
 	if err != nil {
-		slog.Error("partido no encontrado para predicción", "match_id", matchID, "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "partido no encontrado para predicción", "match_id", matchID, "user_id", userID, "error", err)
 		return nil, err
 	}
 
 	if !match.IsOpenForPrediction(s.clock.Now()) {
-		slog.Warn("intento de predicción fuera de plazo",
-			"user_id", userID,
+		slog.WarnContext(ctx, "intento de predicción fuera de plazo", "user_id", userID,
 			"match_id", matchID,
 			"kickoff", match.KickoffAt,
-			"now", s.clock.Now(),
-		)
+			"now", s.clock.Now(),)
 		return nil, ErrCutoffPassed
 	}
 
@@ -140,20 +138,16 @@ func (s *Service) CreateOrUpdatePrediction(ctx context.Context, userID uuid.UUID
 
 	created, err := s.repo.UpsertPrediction(ctx, &pred)
 	if err != nil {
-		slog.Error("error al guardar predicción",
-			"user_id", userID,
+		slog.ErrorContext(ctx, "error al guardar predicción", "user_id", userID,
 			"match_id", matchID,
-			"error", err,
-		)
+			"error", err,)
 		return nil, err
 	}
 
-	slog.Info("predicción guardada",
-		"user_id", userID,
+	slog.InfoContext(ctx, "predicción guardada", "user_id", userID,
 		"match_id", matchID,
 		"argentina_goals", req.ArgentinaGoals,
-		"opponent_goals", req.OpponentGoals,
-	)
+		"opponent_goals", req.OpponentGoals,)
 
 	return predictionToResponse(created), nil
 }
@@ -164,7 +158,7 @@ func (s *Service) GetMyPredictions(ctx context.Context) ([]PredictionResponse, e
 
 	predictions, err := s.repo.GetPredictionsByUserID(ctx, userID)
 	if err != nil {
-		slog.Error("error al obtener predicciones del usuario", "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "error al obtener predicciones del usuario", "user_id", userID, "error", err)
 		return nil, err
 	}
 
@@ -196,19 +190,15 @@ func (s *Service) CreateMatch(ctx context.Context, req CreateMatchRequest) (*Adm
 	}
 
 	if err := s.repo.CreateMatch(ctx, &match); err != nil {
-		slog.Error("error al crear partido",
-			"stage", req.Stage,
+		slog.ErrorContext(ctx, "error al crear partido", "stage", req.Stage,
 			"opponent", req.Opponent,
-			"error", err,
-		)
+			"error", err,)
 		return nil, err
 	}
 
-	slog.Info("partido creado",
-		"match_id", match.ID,
+	slog.InfoContext(ctx, "partido creado", "match_id", match.ID,
 		"stage", match.Stage,
-		"opponent", match.Opponent,
-	)
+		"opponent", match.Opponent,)
 
 	return adminMatchToResponse(&match), nil
 }
@@ -237,18 +227,14 @@ func (s *Service) UpdateMatch(ctx context.Context, matchID uuid.UUID, req Update
 	}
 
 	if err := s.repo.UpdateMatch(ctx, match); err != nil {
-		slog.Error("error al actualizar partido",
-			"match_id", matchID,
-			"error", err,
-		)
+		slog.ErrorContext(ctx, "error al actualizar partido", "match_id", matchID,
+			"error", err,)
 		return nil, err
 	}
 
-	slog.Info("partido actualizado",
-		"match_id", matchID,
+	slog.InfoContext(ctx, "partido actualizado", "match_id", matchID,
 		"status", match.Status,
-		"is_visible", match.IsVisible,
-	)
+		"is_visible", match.IsVisible,)
 
 	return adminMatchToResponse(match), nil
 }
@@ -271,20 +257,16 @@ func (s *Service) RecordResult(ctx context.Context, matchID uuid.UUID, req Recor
 	match.Status = MatchStatusResultRecorded
 
 	if err := s.repo.UpdateMatch(ctx, match); err != nil {
-		slog.Error("error al guardar resultado",
-			"match_id", matchID,
+		slog.ErrorContext(ctx, "error al guardar resultado", "match_id", matchID,
 			"argentina_goals", req.ArgentinaGoals,
 			"opponent_goals", req.OpponentGoals,
-			"error", err,
-		)
+			"error", err,)
 		return nil, err
 	}
 
-	slog.Info("resultado registrado",
-		"match_id", matchID,
+	slog.InfoContext(ctx, "resultado registrado", "match_id", matchID,
 		"argentina_goals", req.ArgentinaGoals,
-		"opponent_goals", req.OpponentGoals,
-	)
+		"opponent_goals", req.OpponentGoals,)
 
 	return adminMatchToResponse(match), nil
 }
@@ -306,7 +288,7 @@ func (s *Service) SettleMatch(ctx context.Context, matchID uuid.UUID) (*Settleme
 
 	predictions, err := s.repo.GetPredictionsByMatchID(ctx, matchID)
 	if err != nil {
-		slog.Error("error al obtener predicciones para settlement", "match_id", matchID, "error", err)
+		slog.ErrorContext(ctx, "error al obtener predicciones para settlement", "match_id", matchID, "error", err)
 		return nil, err
 	}
 
@@ -319,7 +301,7 @@ func (s *Service) SettleMatch(ctx context.Context, matchID uuid.UUID) (*Settleme
 	for _, pred := range predictions {
 		existingReward, err := s.repo.GetRewardByPredictionID(ctx, pred.ID)
 		if err != nil {
-			slog.Error("error al verificar premio existente", "prediction_id", pred.ID, "error", err)
+			slog.ErrorContext(ctx, "error al verificar premio existente", "prediction_id", pred.ID, "error", err)
 			continue
 		}
 
@@ -351,7 +333,7 @@ func (s *Service) SettleMatch(ctx context.Context, matchID uuid.UUID) (*Settleme
 			}
 
 			if err := s.repo.CreateReward(ctx, reward); err != nil {
-				slog.Error("error al crear premio", "prediction_id", pred.ID, "error", err)
+				slog.ErrorContext(ctx, "error al crear premio", "prediction_id", pred.ID, "error", err)
 				continue
 			}
 
@@ -364,33 +346,31 @@ func (s *Service) SettleMatch(ctx context.Context, matchID uuid.UUID) (*Settleme
 
 			pred.Status = PredStatusCorrect
 			if err := s.repo.UpdatePrediction(ctx, &pred); err != nil {
-				slog.Error("error al actualizar predicción", "prediction_id", pred.ID, "error", err)
+				slog.ErrorContext(ctx, "error al actualizar predicción", "prediction_id", pred.ID, "error", err)
 			}
 		} else {
 			incorrectCount++
 			pred.Status = PredStatusIncorrect
 			if err := s.repo.UpdatePrediction(ctx, &pred); err != nil {
-				slog.Error("error al actualizar predicción", "prediction_id", pred.ID, "error", err)
+				slog.ErrorContext(ctx, "error al actualizar predicción", "prediction_id", pred.ID, "error", err)
 			}
 		}
 	}
 
 	match.Status = MatchStatusEvaluated
 	if err := s.repo.UpdateMatch(ctx, match); err != nil {
-		slog.Error("error al actualizar estado del partido", "match_id", matchID, "error", err)
+		slog.ErrorContext(ctx, "error al actualizar estado del partido", "match_id", matchID, "error", err)
 	}
 
 	if needsAdminNotify {
 		s.notifyAdmins(ctx, match, pendingInventory)
 	}
 
-	slog.Info("settlement completado",
-		"match_id", matchID,
+	slog.InfoContext(ctx, "settlement completado", "match_id", matchID,
 		"total", totalPreds,
 		"correct", correctCount,
 		"incorrect", incorrectCount,
-		"pending_inventory", pendingInventory,
-	)
+		"pending_inventory", pendingInventory,)
 
 	return &SettlementResponse{
 		MatchID:    matchID.String(),
@@ -404,7 +384,7 @@ func (s *Service) SettleMatch(ctx context.Context, matchID uuid.UUID) (*Settleme
 func (s *Service) RetryPendingRewards(ctx context.Context) (*RewardRetryResponse, error) {
 	pending, err := s.repo.GetPendingInventoryRewards(ctx)
 	if err != nil {
-		slog.Error("error al obtener premios pendientes", "error", err)
+		slog.ErrorContext(ctx, "error al obtener premios pendientes", "error", err)
 		return nil, err
 	}
 
@@ -418,11 +398,11 @@ func (s *Service) RetryPendingRewards(ctx context.Context) (*RewardRetryResponse
 
 		pred, err := s.repo.GetPredictionByID(ctx, reward.PredictionID)
 		if err != nil {
-			slog.Error("error al obtener predicción", "prediction_id", reward.PredictionID, "error", err)
+			slog.ErrorContext(ctx, "error al obtener predicción", "prediction_id", reward.PredictionID, "error", err)
 			reward.Status = RewardStatusFailed
 			reward.FailureReason = err.Error()
 			if err := s.repo.UpdateReward(ctx, reward); err != nil {
-				slog.Error("error al actualizar premio", "reward_id", reward.ID, "error", err)
+				slog.ErrorContext(ctx, "error al actualizar premio", "reward_id", reward.ID, "error", err)
 			}
 			failed++
 			continue
@@ -432,7 +412,7 @@ func (s *Service) RetryPendingRewards(ctx context.Context) (*RewardRetryResponse
 			reward.Status = RewardStatusSkipped
 			reward.FailureReason = "predicción ya no es correcta"
 			if err := s.repo.UpdateReward(ctx, reward); err != nil {
-				slog.Error("error al actualizar premio", "reward_id", reward.ID, "error", err)
+				slog.ErrorContext(ctx, "error al actualizar premio", "reward_id", reward.ID, "error", err)
 			}
 			failed++
 			continue
@@ -447,12 +427,10 @@ func (s *Service) RetryPendingRewards(ctx context.Context) (*RewardRetryResponse
 
 	remaining, _ := s.repo.CountPendingInventoryRewards(ctx)
 
-	slog.Info("retry de premios completado",
-		"processed", processed,
+	slog.InfoContext(ctx, "retry de premios completado", "processed", processed,
 		"assigned", assigned,
 		"failed", failed,
-		"remaining", remaining,
-	)
+		"remaining", remaining,)
 
 	return &RewardRetryResponse{
 		Processed: processed,
@@ -470,15 +448,15 @@ func (s *Service) tryAssignVoucher(ctx context.Context, reward *ProdeReward) boo
 		if err == voucher.ErrNoAvailableVouchers {
 			reward.Status = RewardStatusPendingInventory
 			if err := s.repo.UpdateReward(ctx, reward); err != nil {
-				slog.Error("error al actualizar premio pendiente", "reward_id", reward.ID, "error", err)
+				slog.ErrorContext(ctx, "error al actualizar premio pendiente", "reward_id", reward.ID, "error", err)
 			}
 			return false
 		}
-		slog.Error("error al asignar voucher", "reward_id", reward.ID, "error", err)
+		slog.ErrorContext(ctx, "error al asignar voucher", "reward_id", reward.ID, "error", err)
 		reward.Status = RewardStatusFailed
 		reward.FailureReason = err.Error()
 		if err := s.repo.UpdateReward(ctx, reward); err != nil {
-			slog.Error("error al actualizar premio", "reward_id", reward.ID, "error", err)
+			slog.ErrorContext(ctx, "error al actualizar premio", "reward_id", reward.ID, "error", err)
 		}
 		return false
 	}
@@ -487,16 +465,14 @@ func (s *Service) tryAssignVoucher(ctx context.Context, reward *ProdeReward) boo
 	reward.VoucherID = &voucherID
 	reward.Status = RewardStatusFulfilled
 	if err := s.repo.UpdateReward(ctx, reward); err != nil {
-		slog.Error("error al actualizar premio", "reward_id", reward.ID, "error", err)
+		slog.ErrorContext(ctx, "error al actualizar premio", "reward_id", reward.ID, "error", err)
 		return false
 	}
 
 	if err := s.sendVoucherEmail(ctx, reward.UserID, voucherEntity); err != nil {
-		slog.Error("error al enviar email del voucher",
-			"reward_id", reward.ID,
+		slog.ErrorContext(ctx, "error al enviar email del voucher", "reward_id", reward.ID,
 			"user_id", reward.UserID,
-			"error", err,
-		)
+			"error", err,)
 	}
 
 	return true
@@ -517,20 +493,20 @@ func (s *Service) sendVoucherEmail(ctx context.Context, userID uuid.UUID, vouche
 func (s *Service) notifyAdmins(ctx context.Context, match *ProdeMatch, pendingCount int) {
 	for _, email := range s.adminEmails {
 		if err := s.mailer.SendProdeAdminNotification(ctx, email, match.Opponent, match.Stage, pendingCount); err != nil {
-			slog.Error("error al notificar a admin", "email", email, "error", err)
+			slog.ErrorContext(ctx, "error al notificar a admin", "email", email, "error", err)
 		}
 	}
 
 	// Marcar rewards pendientes como notificados
 	pending, err := s.repo.GetPendingInventoryRewards(ctx)
 	if err != nil {
-		slog.Error("error al obtener premios pendientes", "error", err)
+		slog.ErrorContext(ctx, "error al obtener premios pendientes", "error", err)
 		return
 	}
 	for i := range pending {
 		pending[i].AdminNotified = true
 		if err := s.repo.UpdateReward(ctx, &pending[i]); err != nil {
-			slog.Error("error al marcar premio como notificado", "reward_id", pending[i].ID, "error", err)
+			slog.ErrorContext(ctx, "error al marcar premio como notificado", "reward_id", pending[i].ID, "error", err)
 		}
 	}
 }

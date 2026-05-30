@@ -75,30 +75,30 @@ func (s *Service) Create(ctx context.Context, proof *ProofRequest) (*ProofRespon
 		ProductName:     &goodsName,
 	}
 
-	// Use a transaction to ensure atomicity
+	// Usamos una transacción para asegurar atomicidad
 	var proofResult *Proof
 	var quantityStamps int
 
 	err = s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Create repositories/services that use this transaction
+		// Creamos repositories/services que usen esta transacción
 		txProofRepo := s.repo.WithTx(tx)
 		txUserService := s.userService.WithTx(tx)
 		txVoucherService := s.voucherService.WithTx(tx)
 
-		// 1. Create the proof
+		// 1. Creamos el proof
 		var createErr error
 		proofResult, createErr = txProofRepo.Create(ctx, newProof)
 		if createErr != nil {
 			return createErr
 		}
 
-		// 2. Increment stamps counter
+		// 2. Incrementamos el contador de stamps
 		quantityStamps, createErr = txUserService.IncrementStampsCounter(ctx, proofResult.UserID)
 		if createErr != nil {
 			return createErr
 		}
 
-		// 3. If stamps == 5, assign voucher and reset counter
+		// 3. Si stamps == 5, asignamos voucher y reseteamos el contador
 		if quantityStamps == 5 {
 			_, createErr = txVoucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{
 				UserID: proofResult.UserID,
@@ -191,24 +191,24 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 		ProductName:     &goodsName,
 	}
 
-	// Use a transaction to ensure atomicity
+	// Usamos una transacción para asegurar atomicidad
 	var proofResult *Proof
 	var quantityStamps int
 
 	err = s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Create repositories/services that use this transaction
+		// Creamos repositories/services que usen esta transacción
 		txProofRepo := s.repo.WithTx(tx)
 		txUserService := s.userService.WithTx(tx)
 		txVoucherService := s.voucherService.WithTx(tx)
 
-		// 1. Create the proof
+		// 1. Creamos el proof
 		var createErr error
 		proofResult, createErr = txProofRepo.Create(ctx, newProof)
 		if createErr != nil {
 			return createErr
 		}
 
-		// 2. Increment stamps counter
+		// 2. Incrementamos el contador de stamps
 		quantityStamps, createErr = txUserService.IncrementStampsCounter(ctx, proofResult.UserID)
 		if createErr != nil {
 			return createErr
@@ -217,7 +217,7 @@ func (s *Service) CreateFromOthers(ctx context.Context, req *ProofOthersRequest)
 		log.Printf("proofResult (others): userID=%s idMP=%s amount=%.2f", proofResult.UserID, proofResult.IDMP, proofResult.AmountMP)
 		log.Printf("quantityStamps (others): %d", quantityStamps)
 
-		// 3. If stamps == 5, assign voucher and reset counter
+		// 3. Si stamps == 5, asignamos voucher y reseteamos el contador
 		if quantityStamps == 5 {
 			_, createErr = txVoucherService.AssignNextVoucher(ctx, &voucher.VoucherRequest{
 				UserID: proofResult.UserID,

@@ -37,7 +37,7 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeVoucherConflict(w, "No hay vouchers disponibles en este momento")
 			return
 		}
-		slog.Error("error al asignar voucher", "error", err)
+		slog.ErrorContext(r.Context(), "error al asignar voucher", "error", err)
 		writeVoucherInternal(w, "Error en el servidor al intentar crear el voucher")
 		return
 	}
@@ -59,7 +59,7 @@ func (h *HTTPHandler) GetAllByUserID(w http.ResponseWriter, r *http.Request) {
 	vouchers, err := h.service.GetAllByUserID(ctx, userID)
 
 	if err != nil {
-		slog.Error("error al recuperar vouchers del usuario", "user_id", userID, "error", err)
+		slog.ErrorContext(r.Context(), "error al recuperar vouchers del usuario", "user_id", userID, "error", err)
 		writeVoucherInternal(w, "Error al recuperar los vouchers")
 		return
 	}
@@ -107,7 +107,7 @@ func (h *HTTPHandler) DeleteVoucher(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		slog.Error("error al eliminar voucher", "voucher_id", voucherID, "user_id", userID, "error", err)
+		slog.ErrorContext(r.Context(), "error al eliminar voucher", "voucher_id", voucherID, "user_id", userID, "error", err)
 		writeVoucherInternal(w, "Error al eliminar el voucher")
 		return
 	}
@@ -118,7 +118,7 @@ func (h *HTTPHandler) DeleteVoucher(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) GetAvailableCount(w http.ResponseWriter, r *http.Request) {
 	count, err := h.service.GetAvailableCount(r.Context())
 	if err != nil {
-		slog.Error("error al obtener cantidad de vouchers disponibles", "error", err)
+		slog.ErrorContext(r.Context(), "error al obtener cantidad de vouchers disponibles", "error", err)
 		writeVoucherInternal(w, "Error al obtener la cantidad de vouchers disponibles")
 		return
 	}

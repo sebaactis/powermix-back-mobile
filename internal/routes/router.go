@@ -34,19 +34,21 @@ func Router(d Deps) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(
+		middlewares.RequestID(),
+		middlewares.RequestLogger(slog.Default()),
 		middlewares.Recoverer(slog.Default()),
-		middlewares.Logger(),
 		middlewares.JSONContentType(),
+		d.RateLimiter.Middleware(),
 		middlewares.Timeout(30*time.Second),
 	)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// Auth
+		// Autenticación
 		r.Post("/register", d.UserHandler.Create)
 		r.Post("/login", d.AuthHandler.Login)
 		r.Post("/login-google", d.AuthHandler.OAuthGoogle)
 
-		// User password
+		// Password de usuario
 		r.Post("/recoveryPassword", d.AuthHandler.RecoveryPasswordRequest)
 		r.Post("/updatePasswordRecovery", d.AuthHandler.UpdatePasswordByRecovery)
 
